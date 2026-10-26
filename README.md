@@ -27,6 +27,14 @@ npm run dev          # 开发模式
 npm run build        # 打包，产物在 src-tauri/target/release/bundle/
 ```
 
+在 macOS 上交叉编译 Windows x64（GNU 工具链，不需要 MSVC SDK）：
+
+```bash
+brew install mingw-w64 makensis rustup
+rustup toolchain install stable --profile minimal --target x86_64-pc-windows-gnu
+npm run build:win    # 产物：dist/AgentTracker_<版本>_x64-setup.exe 和 _x64-portable.zip
+```
+
 不启动界面、直接输出 JSON 报表：
 
 ```bash

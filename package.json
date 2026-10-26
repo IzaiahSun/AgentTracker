@@ -5,7 +5,8 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "build:win": "scripts/build-windows.sh"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4"
