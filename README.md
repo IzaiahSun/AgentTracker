@@ -10,6 +10,7 @@ A tiny desktop app that tracks how many tokens your coding agents use each day, 
 - Preset ranges (today / 7 / 30 / 90 days / all) or a custom date range
 - Switchable metric: all tokens, excluding cache reads, input only, output only, …
 - Light and dark mode; English and Chinese UI, chosen from the system language
+- Updates itself from GitHub Releases (macOS and the Windows installer)
 
 ## Download
 
@@ -60,6 +61,17 @@ brew install mingw-w64 makensis rustup
 rustup toolchain install stable --profile minimal --target x86_64-pc-windows-gnu
 npm run build:win    # -> dist/AgentTracker_<version>_x64-setup.exe and _x64-portable.zip
 ```
+
+### Releasing
+
+Updates are signed with a Tauri updater key (separate from the Apple certificate). The public key is in `src-tauri/tauri.conf.json`; the private key lives outside the repo at `~/.tauri/agenttracker.key` (override with `TAURI_SIGNING_PRIVATE_KEY`). **Back it up**: without it, installed copies can't verify new releases and won't update.
+
+```bash
+# bump "version" in src-tauri/tauri.conf.json, then:
+scripts/release.sh   # builds macOS + Windows, writes dist/latest.json, publishes v<version>
+```
+
+Installed apps check `releases/latest/download/latest.json` a few seconds after launch and every 6 hours. `agent-tracker --update` checks and installs from the command line.
 
 Print the report as JSON without opening the UI:
 

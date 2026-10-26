@@ -1,6 +1,6 @@
 [package]
 name = "agent-tracker"
-version = "0.1.0"
+version = "0.1.1"
 description = "Daily token usage tracker for coding agents"
 license = "MIT"
 edition = "2021"
@@ -23,6 +23,7 @@ dirs = "6"
 rusqlite = { version = "0.37", features = ["bundled"] }
 zstd = "0.13"
 sys-locale = "0.3"
+tauri-plugin-updater = "2"
 
 [profile.release]
 opt-level = "s"

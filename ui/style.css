@@ -97,7 +97,19 @@ button, select { font: inherit; color: inherit; }
   padding: 0 12px; cursor: pointer;
 }
 .btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 600; }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
 .btn:disabled { opacity: .55; cursor: progress; }
+
+.update-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  /* Same width as main's content box (1400px minus its 24px side padding). */
+  width: min(1352px, calc(100% - 48px)); margin: 12px auto 0; padding: 8px 12px 8px 14px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 10px;
+}
+.update-bar[hidden] { display: none; }
+.update-bar .actions { display: inline-flex; gap: 8px; }
 
 main { padding: 16px 24px 40px; display: flex; flex-direction: column; gap: 16px; max-width: 1400px; margin: 0 auto; }
 
@@ -204,5 +216,6 @@ table.mini tr:last-child td { border-bottom: 0; }
 
 @media (max-width: 640px) {
   .topbar, main { padding-left: 16px; padding-right: 16px; }
+  .update-bar { width: calc(100% - 32px); }
   .agent-grid { grid-template-columns: 1fr; }
 }

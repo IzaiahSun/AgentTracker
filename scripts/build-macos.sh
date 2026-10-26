@@ -11,8 +11,11 @@
 #   APPLE_SIGNING_IDENTITY  codesign identity (default: the "Developer ID Application" cert)
 #   NOTARY_PROFILE          notarytool keychain profile (default: AgentTracker)
 #   SKIP_NOTARIZE=1         sign only
+#   TAURI_SIGNING_PRIVATE_KEY  updater key path or contents (default: ~/.tauri/agenttracker.key)
 #
-# Output: dist/AgentTracker_<ver>_universal.dmg
+# Output in dist/:
+#   AgentTracker_<ver>_universal.dmg           installer
+#   AgentTracker_<ver>_universal.app.tar.gz(.sig)  updater payload + signature
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -21,6 +24,8 @@ export APPLE_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:-Developer ID Applicatio
 NOTARY_PROFILE="${NOTARY_PROFILE:-AgentTracker}"
 # Homebrew's rust has only the host std; use rustup's toolchain for both arches.
 export PATH="$(rustup run stable rustc --print sysroot)/bin:$PATH"
+export TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$HOME/.tauri/agenttracker.key}"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
 
 notarize() {
   [[ "${SKIP_NOTARIZE:-}" == 1 ]] && return
@@ -42,7 +47,14 @@ if [[ "${SKIP_NOTARIZE:-}" != 1 ]]; then
   xcrun stapler staple "$APP"
 fi
 
-mkdir -p dist "$WORK/dmg"
+# Updater payload: re-pack the stapled app (Tauri's own tarball predates stapling).
+mkdir -p dist
+TARBALL="dist/AgentTracker_${VERSION}_universal.app.tar.gz"
+COPYFILE_DISABLE=1 tar -czf "$TARBALL" -C "$(dirname "$APP")" AgentTracker.app
+rm -f "$TARBALL.sig"
+npx tauri signer sign "$TARBALL" >/dev/null
+
+mkdir -p "$WORK/dmg"
 DMG="dist/AgentTracker_${VERSION}_universal.dmg"
 cp -R "$APP" "$WORK/dmg/"
 ln -s /Applications "$WORK/dmg/Applications"

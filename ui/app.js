@@ -548,6 +548,33 @@ function renderSources() {
     .join("");
 }
 
+// ---------- updates ----------
+let pendingUpdate = null;
+
+async function checkForUpdate() {
+  if (!window.__TAURI__ || pendingUpdate) return;
+  try {
+    const info = await window.__TAURI__.core.invoke("check_update");
+    if (!info) return;
+    pendingUpdate = info;
+    $("#updateText").textContent = t("updateAvailable", { version: info.version, current: info.current });
+    $("#updateBar").hidden = false;
+  } catch (_) {
+    // Offline or GitHub unreachable: try again on the next interval.
+  }
+}
+
+async function installUpdate() {
+  $("#updateNow").disabled = $("#updateLater").disabled = true;
+  $("#updateText").textContent = t("updating", { version: pendingUpdate.version });
+  try {
+    await window.__TAURI__.core.invoke("install_update"); // restarts on success
+  } catch (e) {
+    $("#updateText").textContent = t("updateFailed", { err: e });
+    $("#updateNow").disabled = $("#updateLater").disabled = false;
+  }
+}
+
 // ---------- events ----------
 function bindSeg(sel, key, parse) {
   const root = $(sel);
@@ -631,6 +658,12 @@ async function init() {
       renderHeatmap();
     }, 80);
   }).observe(chart);
+
+  $("#updateNow").addEventListener("click", installUpdate);
+  // "Later" hides the banner for this session; the version is not re-offered until relaunch.
+  $("#updateLater").addEventListener("click", () => ($("#updateBar").hidden = true));
+  setTimeout(checkForUpdate, 3000);
+  setInterval(checkForUpdate, 6 * 3600 * 1000);
 
   // Rescan periodically and whenever the window regains focus.
   setInterval(() => document.visibilityState === "visible" && refresh(), 120000);

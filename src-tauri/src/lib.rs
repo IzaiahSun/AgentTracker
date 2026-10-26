@@ -1,5 +1,6 @@
 mod collectors;
 mod model;
+mod update;
 
 use collectors::FileCache;
 use model::{local_date, DailyRow, Event, Report, SourceStatus, Tokens};
@@ -90,9 +91,22 @@ pub fn print_report() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let headless_update = std::env::args().any(|a| a == "--update");
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(FileCache::default())
-        .invoke_handler(tauri::generate_handler![get_report, system_locale])
+        .setup(move |app| {
+            if headless_update {
+                update::run_headless(app.handle());
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_report,
+            system_locale,
+            update::check_update,
+            update::install_update
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

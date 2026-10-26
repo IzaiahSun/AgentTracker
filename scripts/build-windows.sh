@@ -6,7 +6,7 @@
 #   rustup toolchain install stable --profile minimal --target x86_64-pc-windows-gnu
 #
 # Outputs in dist/:
-#   AgentTracker_<ver>_x64-setup.exe   NSIS installer
+#   AgentTracker_<ver>_x64-setup.exe(.sig)   NSIS installer (+ updater signature)
 #   AgentTracker_<ver>_x64-portable.zip  exe + WebView2Loader.dll, no install needed
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -17,13 +17,16 @@ export PATH="$(rustup run stable rustc --print sysroot)/bin:$PATH"
 export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 # makensis crashes (std::bad_alloc) under the C locale.
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+# Updater signing key (signs the installer for in-app updates).
+export TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$HOME/.tauri/agenttracker.key}"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
 
 npx tauri build --target "$TARGET" --bundles nsis
 
 VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
 OUT=src-tauri/target/$TARGET/release
 mkdir -p dist
-cp "$OUT/bundle/nsis/AgentTracker_${VERSION}_x64-setup.exe" dist/
+cp "$OUT/bundle/nsis/AgentTracker_${VERSION}_x64-setup.exe" "$OUT/bundle/nsis/AgentTracker_${VERSION}_x64-setup.exe.sig" dist/
 STAGE=$(mktemp -d)
 mkdir "$STAGE/AgentTracker"
 cp "$OUT/agent-tracker.exe" "$STAGE/AgentTracker/AgentTracker.exe"

@@ -6,6 +6,8 @@
 
 界面支持中英双语，根据系统语言自动选择（系统为中文时显示中文，其余显示英文）。
 
+支持从 GitHub Releases 自动更新（macOS 和 Windows 安装版；Windows 免安装版需要手动下载）。
+
 ## 下载
 
 到 [Releases](https://github.com/IzaiahSun/AgentTracker/releases) 下载：
@@ -53,6 +55,17 @@ brew install mingw-w64 makensis rustup
 rustup toolchain install stable --profile minimal --target x86_64-pc-windows-gnu
 npm run build:win    # 产物：dist/AgentTracker_<版本>_x64-setup.exe 和 _x64-portable.zip
 ```
+
+### 发布新版本
+
+更新包用 Tauri 的更新签名密钥签名（和 Apple 证书无关）。公钥写在 `src-tauri/tauri.conf.json` 里；私钥放在仓库外的 `~/.tauri/agenttracker.key`（可用 `TAURI_SIGNING_PRIVATE_KEY` 覆盖）。**务必备份私钥**：丢了之后，已安装的 app 无法验证新版本，也就不能自动更新。
+
+```bash
+# 先修改 src-tauri/tauri.conf.json 里的 "version"，然后：
+scripts/release.sh   # 打包 macOS 和 Windows，生成 dist/latest.json，发布 v<版本>
+```
+
+已安装的 app 启动几秒后、以及之后每 6 小时，会检查 `releases/latest/download/latest.json`。命令行运行 `agent-tracker --update` 也可以检查并安装更新。
 
 不启动界面、直接输出 JSON 报表：
 

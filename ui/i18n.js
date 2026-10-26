@@ -74,6 +74,11 @@ const I18N = {
     weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     tipWeekday: "{d}",
+    updateAvailable: "AgentTracker {version} is available (you have {current}).",
+    updateNow: "Update and restart",
+    later: "Later",
+    updating: "Downloading and installing {version}…",
+    updateFailed: "Update failed: {err}",
   },
   zh: {
     scanning: "正在扫描…",
@@ -146,6 +151,11 @@ const I18N = {
     weekdays: ["日", "一", "二", "三", "四", "五", "六"],
     months: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
     tipWeekday: "周{d}",
+    updateAvailable: "AgentTracker {version} 已发布（当前版本 {current}）。",
+    updateNow: "更新并重启",
+    later: "稍后",
+    updating: "正在下载并安装 {version}…",
+    updateFailed: "更新失败：{err}",
   },
 };
 
