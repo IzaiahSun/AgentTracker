@@ -75,6 +75,13 @@ async fn get_report(app: tauri::AppHandle) -> Result<Report, String> {
         .map_err(|e| e.to_string())
 }
 
+/// OS locale (e.g. "zh-CN"). The webview's navigator.language follows the app
+/// bundle's localizations on macOS rather than the system language.
+#[tauri::command]
+fn system_locale() -> Option<String> {
+    sys_locale::get_locale()
+}
+
 /// Headless mode: `agent-tracker --report` prints the report as JSON.
 pub fn print_report() {
     let report = build_report(&FileCache::default());
@@ -85,7 +92,7 @@ pub fn print_report() {
 pub fn run() {
     tauri::Builder::default()
         .manage(FileCache::default())
-        .invoke_handler(tauri::generate_handler![get_report])
+        .invoke_handler(tauri::generate_handler![get_report, system_locale])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

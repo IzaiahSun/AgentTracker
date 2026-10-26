@@ -22,6 +22,7 @@ walkdir = "2"
 dirs = "6"
 rusqlite = { version = "0.37", features = ["bundled"] }
 zstd = "0.13"
+sys-locale = "0.3"
 
 [profile.release]
 opt-level = "s"

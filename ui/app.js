@@ -15,7 +15,8 @@ const AGENTS = [
   { name: "Codex IDE", slot: 0 },
 ];
 const MODEL_SLOTS = 7;
-const OTHER = "其他";
+// Internal key for the folded series; shown as t("other").
+const OTHER = "__other__";
 
 const METRICS = {
   total: (r) => r.input + r.output + r.cache_read + r.cache_write,
@@ -50,6 +51,9 @@ function fmt(n) {
   return String(Math.round(n));
 }
 const full = (n) => n.toLocaleString("en-US");
+
+/// Display name for a series key.
+const label = (k) => (k === OTHER ? t("other") : k);
 
 function slotColor(slot) {
   return slot ? `var(--s${slot})` : "var(--other)";
@@ -138,14 +142,14 @@ async function refresh() {
   if (state.loading) return;
   state.loading = true;
   $("#refresh").disabled = true;
-  $("#status").textContent = "正在扫描…";
+  $("#status").textContent = t("scanning");
   try {
     state.report = await fetchReport();
-    const t = new Date(state.report.generated_at);
-    $("#status").textContent = `更新于 ${t.toLocaleTimeString()} · 扫描 ${state.report.scan_ms} ms`;
+    const at = new Date(state.report.generated_at);
+    $("#status").textContent = t("updated", { time: at.toLocaleTimeString(LANG === "zh" ? "zh-CN" : "en-US"), ms: state.report.scan_ms });
     render();
   } catch (e) {
-    $("#status").textContent = "扫描失败：" + e;
+    $("#status").textContent = t("scanFailed", { err: e });
   } finally {
     state.loading = false;
     $("#refresh").disabled = false;
@@ -224,19 +228,27 @@ function renderTiles(rows) {
   const top = [...byModel.entries()].sort((a, b) => b[1] - a[1])[0];
   const delta = yestV ? ((todayV - yestV) / yestV) * 100 : null;
   const tiles = [
-    { label: "区间总量", value: fmt(total), hint: `${days[0]} 起 ${days.length} 天 · 日均 ${fmt(total / Math.max(days.length, 1))}`, title: full(total) },
     {
-      label: today === ymd(todayDate()) ? "今天" : `${today}（区间最后一天）`,
+      label: t("tileTotal"),
+      value: fmt(total),
+      hint: t("tileTotalHint", { start: days[0], days: days.length, avg: fmt(total / Math.max(days.length, 1)) }),
+      title: full(total),
+    },
+    {
+      label: today === ymd(todayDate()) ? t("tileToday") : t("tileLastDay", { date: today }),
       value: fmt(todayV),
-      hint: delta === null ? `昨天 ${fmt(yestV)}` : `较昨天 ${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%（${fmt(yestV)}）`,
+      hint:
+        delta === null
+          ? t("prevDay", { prev: fmt(yestV) })
+          : t("vsYesterday", { sign: delta >= 0 ? "+" : "", pct: delta.toFixed(0), prev: fmt(yestV) }),
       title: full(todayV),
     },
-    { label: "请求数", value: fmt(req), hint: "模型调用次数", title: full(req) },
-    { label: "缓存命中率", value: inAll ? ((cr / inAll) * 100).toFixed(1) + "%" : "—", hint: "缓存读取 / 全部输入" },
+    { label: t("tileRequests"), value: fmt(req), hint: t("tileRequestsHint"), title: full(req) },
+    { label: t("tileCacheHit"), value: inAll ? ((cr / inAll) * 100).toFixed(1) + "%" : "—", hint: t("tileCacheHitHint") },
     {
-      label: "用量最多的模型",
+      label: t("tileTopModel"),
       value: top ? esc(top[0]) : "—",
-      hint: top && total ? `占 ${((top[1] / total) * 100).toFixed(1)}%` : "",
+      hint: top && total ? t("tileTopModelHint", { pct: ((top[1] / total) * 100).toFixed(1) }) : "",
       small: true,
     },
   ];
@@ -248,8 +260,6 @@ function renderTiles(rows) {
     )
     .join("");
 }
-
-const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
 /// GitHub-style calendar of the past year (Monday-first weeks). Follows the
 /// agent filter and metric, not the date range; selected-range days are outlined.
@@ -278,13 +288,13 @@ function renderHeatmap() {
   const [ra, rb] = rangeBounds().map(ymd);
   const el = $("#heatmap");
   const weeks = Math.ceil(days.length / 7);
-  const G = 3, L = 22, T = 16;
+  const G = 3, L = 28, T = 16;
   // Cells grow to fill the card, between 10px and 20px.
   const C = Math.max(10, Math.min(20, Math.floor((el.clientWidth - L) / weeks - G)));
   const W = L + weeks * (C + G), H = T + 7 * (C + G);
-  let svg = `<svg width="${W}" height="${H}" role="img" aria-label="近一年每日 token 用量热力图">`;
+  let svg = `<svg width="${W}" height="${H}" role="img" aria-label="${t("heatAria")}">`;
   [1, 3, 5].forEach((wd) => {
-    svg += `<text class="lbl" x="0" y="${T + (wd - 1) * (C + G) + C - 2}">${WEEKDAYS[wd]}</text>`;
+    svg += `<text class="lbl" x="0" y="${T + (wd - 1) * (C + G) + C - 2}">${t("weekdays")[wd]}</text>`;
   });
   let lastMonth = -1, lastLabelX = -99;
   let total = 0, active = 0;
@@ -294,7 +304,7 @@ function renderHeatmap() {
     if (wd === 0 && d.getMonth() !== lastMonth) {
       lastMonth = d.getMonth();
       if (x - lastLabelX > 28) {
-        svg += `<text class="lbl" x="${x}" y="10">${d.getMonth() + 1}月</text>`;
+        svg += `<text class="lbl" x="${x}" y="10">${t("months")[d.getMonth()]}</text>`;
         lastLabelX = x;
       }
     }
@@ -310,7 +320,7 @@ function renderHeatmap() {
   el.innerHTML = svg;
   el._perDay = perDay;
   if (keepRight) el.scrollLeft = el.scrollWidth;
-  $("#heatSummary").textContent = `${fmt(total)} tokens · ${active} 天有用量`;
+  $("#heatSummary").textContent = t("heatSummary", { total: fmt(total), days: active });
 }
 
 /// Builds per-day stacks: [{date, segs:[{key, slot, v}], sum}]; keys sorted by range total.
@@ -358,7 +368,7 @@ function niceMax(v) {
 function renderChart(rows) {
   const { keys, stacks } = buildSeries(rows);
   $("#legend").innerHTML = keys
-    .map((k) => `<span><i style="background:${slotColor(k.slot)}"></i>${esc(k.key)} <b>${fmt(k.total)}</b></span>`)
+    .map((k) => `<span><i style="background:${slotColor(k.slot)}"></i>${esc(label(k.key))} <b>${fmt(k.total)}</b></span>`)
     .join("");
 
   const el = $("#chart");
@@ -373,7 +383,7 @@ function renderChart(rows) {
   const band = iw / n;
   const bw = Math.max(2, Math.min(36, band * 0.68));
 
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="每日 token 用量堆叠柱状图">`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t("chartAria")}">`;
   for (let i = 0; i <= 4; i++) {
     const v = (max / 4) * i;
     const yy = y(v);
@@ -408,7 +418,7 @@ function renderChart(rows) {
     svg += `<rect class="hit" data-i="${i}" x="${pad.l + band * i}" y="${pad.t}" width="${band}" height="${ih}"/>`;
   });
   if (!stacks.some((s) => s.sum > 0)) {
-    svg += `<text class="empty" x="${pad.l + iw / 2}" y="${pad.t + ih / 2}" text-anchor="middle">所选范围内没有数据</text>`;
+    svg += `<text class="empty" x="${pad.l + iw / 2}" y="${pad.t + ih / 2}" text-anchor="middle">${t("noData")}</text>`;
   }
   svg += "</svg>";
   el.innerHTML = svg;
@@ -422,9 +432,9 @@ function showTooltip(ev, s) {
     `<div class="t">${s.date}</div>` +
       (segs.length
         ? segs
-            .map((g) => `<div class="row"><span><i style="background:${slotColor(g.slot)}"></i>${esc(g.key)}</span><b>${fmt(g.v)}</b></div>`)
-            .join("") + `<div class="row sum"><span>合计</span><b>${full(s.sum)}</b></div>`
-        : `<div class="muted">无用量</div>`)
+            .map((g) => `<div class="row"><span><i style="background:${slotColor(g.slot)}"></i>${esc(label(g.key))}</span><b>${fmt(g.v)}</b></div>`)
+            .join("") + `<div class="row sum"><span>${t("total")}</span><b>${full(s.sum)}</b></div>`
+        : `<div class="muted">${t("noUsage")}</div>`)
   );
 }
 
@@ -462,7 +472,7 @@ function renderAgentCards(rows) {
   }
   const list = [...agents.entries()].sort((a, b) => b[1].total - a[1].total);
   if (!list.length) {
-    $("#agentCards").innerHTML = `<div class="muted">所选范围内没有数据</div>`;
+    $("#agentCards").innerHTML = `<div class="muted">${t("noData")}</div>`;
     return;
   }
   $("#agentCards").innerHTML = list
@@ -482,8 +492,8 @@ function renderAgentCards(rows) {
         .join("");
       return `<article class="agent-card">
         <header><h3><i style="background:${slotColor(agentSlot(name))}"></i>${esc(name)}</h3>
-          <span><span class="total" title="${full(a.total)}">${fmt(a.total)}</span> <span class="muted">· ${fmt(a.requests)} 次</span></span></header>
-        <table class="mini"><thead><tr><th>模型</th><th>请求</th><th>输入</th><th>输出</th><th>缓存读</th><th>缓存写</th><th>合计</th></tr></thead>
+          <span><span class="total" title="${full(a.total)}">${fmt(a.total)}</span> <span class="muted">· ${t("calls", { n: fmt(a.requests) })}</span></span></header>
+        <table class="mini"><thead><tr><th>${t("model")}</th><th>${t("requests")}</th><th>${t("input")}</th><th>${t("output")}</th><th>${t("cacheRead")}</th><th>${t("cacheWrite")}</th><th>${t("total")}</th></tr></thead>
         <tbody>${body}</tbody></table></article>`;
     })
     .join("");
@@ -508,24 +518,31 @@ function renderDetail(rows) {
       <td class="num">${full(r.requests)}</td><td class="num">${full(r.input)}</td><td class="num">${full(r.output)}</td>
       <td class="num">${full(r.cache_read)}</td><td class="num">${full(r.cache_write)}</td><td class="num"><b>${full(m(r))}</b></td></tr>`;
   }
-  $("#detail tbody").innerHTML = html || `<tr><td colspan="9" class="muted">所选范围内没有数据</td></tr>`;
-  $("#detailCount").textContent = `${sorted.length} 行${sorted.length > LIMIT ? `（显示前 ${LIMIT}）` : ""} · “合计”列按当前口径`;
+  $("#detail tbody").innerHTML = html || `<tr><td colspan="9" class="muted">${t("noData")}</td></tr>`;
+  $("#detailCount").textContent =
+    t("detailCount", { n: sorted.length }) + (sorted.length > LIMIT ? t("detailLimited", { limit: LIMIT }) : "") + t("detailNote");
 }
 
+// Where each collector looks by default, shown when nothing was found.
 const DEFAULT_PATHS = {
-  OpenClaw: "~/.openclaw/agents（或 $OPENCLAW_DIR）",
-  "DeepSeek Harness": "~/.dsh/sessions（或 $DSH_HOME）",
-  OpenCode: "~/.local/share/opencode",
-  Codex: "~/.codex/sessions（或 $CODEX_HOME）",
-  "Claude Code": "~/.claude/projects（或 $CLAUDE_CONFIG_DIR）",
+  OpenClaw: ["~/.openclaw/agents", "$OPENCLAW_DIR"],
+  "DeepSeek Harness": ["~/.dsh/sessions", "$DSH_HOME"],
+  OpenCode: ["~/.local/share/opencode", null],
+  Codex: ["~/.codex/sessions", "$CODEX_HOME"],
+  "Claude Code": ["~/.claude/projects", "$CLAUDE_CONFIG_DIR"],
 };
+function defaultPath(agent) {
+  const d = DEFAULT_PATHS[agent];
+  if (!d) return "—";
+  return d[1] ? `${d[0]} (${t("orEnv", { env: d[1] })})` : d[0];
+}
 
 function renderSources() {
   $("#sources").innerHTML = state.report.sources
     .map(
-      (s) => `<div class="source"><span class="state ${s.found ? "ok" : "no"}">${s.found ? `✓ ${full(s.events)} 条请求` : "未找到数据目录"}</span>
+      (s) => `<div class="source"><span class="state ${s.found ? "ok" : "no"}">${s.found ? t("sourceFound", { n: full(s.events) }) : t("sourceMissing")}</span>
         <b>${esc(s.agent)}</b>
-        ${s.paths.map((p) => `<div class="path">${esc(p)}</div>`).join("") || `<div class="path">${esc(DEFAULT_PATHS[s.agent] || "—")}</div>`}
+        ${s.paths.map((p) => `<div class="path">${esc(p)}</div>`).join("") || `<div class="path">${esc(defaultPath(s.agent))}</div>`}
         ${s.errors.map((e) => `<div class="err">${esc(e)}</div>`).join("")}</div>`
     )
     .join("");
@@ -546,7 +563,9 @@ function bindSeg(sel, key, parse) {
   sync();
 }
 
-function init() {
+async function init() {
+  LANG = await detectLang();
+  applyStaticStrings();
   loadPrefs();
   bindSeg("#range", "range", Number);
   const onDate = () => {
@@ -582,9 +601,9 @@ function init() {
     if (!c) return ($("#tooltip").hidden = true);
     const key = c.dataset.d;
     const d = heat._perDay.get(key) || { v: 0, req: 0 };
-    showTip(e, `<div class="t">${key} 周${WEEKDAYS[parseYmd(key).getDay()]}</div>
+    showTip(e, `<div class="t">${key} ${t("tipWeekday", { d: t("weekdays")[parseYmd(key).getDay()] })}</div>
       <div class="row"><span>Token</span><b>${full(d.v)}</b></div>
-      <div class="row"><span>请求</span><b>${full(d.req)}</b></div>`);
+      <div class="row"><span>${t("requests")}</span><b>${full(d.req)}</b></div>`);
   });
   heat.addEventListener("mouseleave", () => ($("#tooltip").hidden = true));
   heat.addEventListener("click", (e) => {
