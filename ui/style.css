@@ -61,7 +61,7 @@ button, select { font: inherit; color: inherit; }
 }
 .brand { display: flex; align-items: baseline; gap: 12px; }
 .sub { color: var(--muted); font-size: 12px; }
-.controls { display: flex; gap: 8px; align-items: center; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 .seg {
   display: inline-flex; padding: 2px; gap: 2px;
@@ -73,6 +73,16 @@ button, select { font: inherit; color: inherit; }
 .seg button:hover { color: var(--ink); }
 .seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border); font-weight: 600; }
 .seg.small button { padding: 2px 8px; font-size: 12px; }
+.daterange {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px 6px;
+}
+.daterange.on { border-color: var(--accent); }
+.daterange input {
+  border: 0; background: transparent; padding: 2px 2px; font: inherit; font-size: 12px;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.daterange input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6; }
 .btn {
   border: 1px solid var(--border); background: var(--surface); border-radius: 8px;
   padding: 5px 12px; cursor: pointer;

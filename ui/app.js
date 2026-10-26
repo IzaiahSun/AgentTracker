@@ -28,7 +28,9 @@ const METRICS = {
 
 const state = {
   report: null,
-  range: 30,
+  range: 30, // days back from today; 0 = all; -1 = custom (from/to)
+  from: null,
+  to: null,
   groupBy: "agent",
   metric: "total",
   hidden: new Set(),
@@ -69,13 +71,15 @@ function loadPrefs() {
     if (p.groupBy) state.groupBy = p.groupBy;
     if (p.metric && METRICS[p.metric]) state.metric = p.metric;
     if (Array.isArray(p.hidden)) state.hidden = new Set(p.hidden);
+    if (p.from && p.to) Object.assign(state, { from: p.from, to: p.to });
+    if (state.range === -1 && !(state.from && state.to)) state.range = 30;
   } catch (_) {}
 }
 function savePrefs() {
   try {
     localStorage.setItem(
       "agenttracker.prefs",
-      JSON.stringify({ range: state.range, groupBy: state.groupBy, metric: state.metric, hidden: [...state.hidden] })
+      JSON.stringify({ range: state.range, from: state.from, to: state.to, groupBy: state.groupBy, metric: state.metric, hidden: [...state.hidden] })
     );
   } catch (_) {}
 }
@@ -94,17 +98,31 @@ function parseYmd(s) {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
-function dateList() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let start;
-  if (state.range > 0) start = addDays(today, -(state.range - 1));
-  else {
-    const dates = state.report.rows.map((r) => r.date).filter((d) => d !== "unknown").sort();
-    start = dates.length ? parseYmd(dates[0]) : today;
+function todayDate() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function earliestDate() {
+  let min = null;
+  for (const r of state.report.rows) if (r.date !== "unknown" && (!min || r.date < min)) min = r.date;
+  return min ? parseYmd(min) : todayDate();
+}
+/// [start, end] of the selected range as local dates.
+function rangeBounds() {
+  const today = todayDate();
+  if (state.range === -1) {
+    let a = parseYmd(state.from), b = parseYmd(state.to);
+    if (a > b) [a, b] = [b, a];
+    return [a, b];
   }
+  if (state.range > 0) return [addDays(today, -(state.range - 1)), today];
+  return [earliestDate(), today];
+}
+function dateList() {
+  const [start, end] = rangeBounds();
   const out = [];
-  for (let d = start; d <= today; d = addDays(d, 1)) out.push(ymd(d));
+  for (let d = start; d <= end; d = addDays(d, 1)) out.push(ymd(d));
   return out;
 }
 
@@ -151,8 +169,19 @@ function modelSlots() {
 }
 
 // ---------- rendering ----------
+function syncDateInputs() {
+  const [a, b] = rangeBounds();
+  const from = $("#from"), to = $("#to");
+  from.value = ymd(a);
+  to.value = ymd(b);
+  from.min = to.min = ymd(earliestDate());
+  from.max = to.max = ymd(todayDate());
+  $(".daterange").classList.toggle("on", state.range === -1);
+}
+
 function render() {
   if (!state.report) return;
+  syncDateInputs();
   renderChips();
   const rows = visibleRows();
   renderTiles(rows);
@@ -194,9 +223,9 @@ function renderTiles(rows) {
   const top = [...byModel.entries()].sort((a, b) => b[1] - a[1])[0];
   const delta = yestV ? ((todayV - yestV) / yestV) * 100 : null;
   const tiles = [
-    { label: "区间总量", value: fmt(total), hint: `${days.length} 天 · 日均 ${fmt(total / Math.max(days.length, 1))}`, title: full(total) },
+    { label: "区间总量", value: fmt(total), hint: `${days[0]} 起 ${days.length} 天 · 日均 ${fmt(total / Math.max(days.length, 1))}`, title: full(total) },
     {
-      label: "今天",
+      label: today === ymd(todayDate()) ? "今天" : `${today}（区间最后一天）`,
       value: fmt(todayV),
       hint: delta === null ? `昨天 ${fmt(yestV)}` : `较昨天 ${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%（${fmt(yestV)}）`,
       title: full(todayV),
@@ -219,20 +248,18 @@ function renderTiles(rows) {
     .join("");
 }
 
-/// Builds per-day stacks: [{date, segs:[{key, slot, v}], sum}], keys in stack order.
+/// Builds per-day stacks: [{date, segs:[{key, slot, v}], sum}]; keys sorted by range total.
 function buildSeries(rows) {
   const m = METRICS[state.metric];
   const days = dateList();
-  let keyOf, slotOf, orderOf;
+  let keyOf, slotOf;
   if (state.groupBy === "agent") {
     keyOf = (r) => (agentSlot(r.agent) ? r.agent : OTHER);
     slotOf = (k) => (k === OTHER ? 0 : agentSlot(k));
-    orderOf = (k) => (k === OTHER ? 99 : agentSlot(k));
   } else {
     const ms = modelSlots();
     keyOf = (r) => (ms.get(r.model) ? r.model : OTHER);
     slotOf = (k) => (k === OTHER ? 0 : ms.get(k));
-    orderOf = (k) => (k === OTHER ? 99 : ms.get(k));
   }
   const byDay = new Map(days.map((d) => [d, new Map()]));
   const keyTotals = new Map();
@@ -244,7 +271,10 @@ function buildSeries(rows) {
     day.set(k, (day.get(k) || 0) + v);
     keyTotals.set(k, (keyTotals.get(k) || 0) + v);
   }
-  const keys = [...keyTotals.keys()].filter((k) => keyTotals.get(k) > 0).sort((a, b) => orderOf(a) - orderOf(b));
+  // Largest total first (bottom of the stack, first in the legend); "Other" last.
+  const keys = [...keyTotals.keys()]
+    .filter((k) => keyTotals.get(k) > 0)
+    .sort((a, b) => (a === OTHER) - (b === OTHER) || keyTotals.get(b) - keyTotals.get(a));
   const stacks = days.map((d) => {
     const day = byDay.get(d);
     const segs = keys.map((k) => ({ key: k, slot: slotOf(k), v: day.get(k) || 0 }));
@@ -447,6 +477,16 @@ function bindSeg(sel, key, parse) {
 function init() {
   loadPrefs();
   bindSeg("#range", "range", Number);
+  const onDate = () => {
+    const f = $("#from").value, t = $("#to").value;
+    if (!f || !t) return;
+    Object.assign(state, { range: -1, from: f, to: t });
+    $("#range").querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+    savePrefs();
+    render();
+  };
+  $("#from").addEventListener("change", onDate);
+  $("#to").addEventListener("change", onDate);
   bindSeg("#groupBy", "groupBy", String);
   $("#metric").value = state.metric;
   $("#metric").addEventListener("change", (e) => {
