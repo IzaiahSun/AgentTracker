@@ -2,6 +2,7 @@
 name = "agent-tracker"
 version = "0.1.0"
 description = "Daily token usage tracker for coding agents"
+license = "MIT"
 edition = "2021"
 
 [lib]

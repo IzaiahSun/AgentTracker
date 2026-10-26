@@ -1,6 +1,15 @@
 # AgentTracker
 
-本地统计各个 coding agent 每天的 token 用量，按模型分别汇总。基于 Tauri 2（系统原生 WebView：macOS WKWebView / Windows WebView2 / Linux WebKitGTK），macOS 打包后约 4.4 MB。只读本地日志，不联网。
+本地统计各个 coding agent 每天的 token 用量，按模型分别汇总。基于 Tauri 2（系统原生 WebView：macOS WKWebView / Windows WebView2 / Linux WebKitGTK），安装包只有几 MB。只读本地日志，不联网。
+
+> **English:** A tiny desktop app that reads the local logs of Claude Code (desktop & CLI), Codex (desktop & CLI), OpenCode, OpenClaw and DeepSeek Harness, and shows your daily token usage per agent and per model — stacked daily chart, GitHub-style yearly heatmap, per-model breakdown. Everything stays on your machine.
+
+## 下载 / Download
+
+到 [Releases](https://github.com/IzaiahSun/AgentTracker/releases) 下载：
+
+- **macOS**（Apple Silicon + Intel 通用）：`AgentTracker_<版本>_universal.dmg`，已签名并经过 Apple 公证，可以直接打开。
+- **Windows x64**：`AgentTracker_<版本>_x64-setup.exe`（安装包）或 `_x64-portable.zip`（免安装）。暂未做代码签名，SmartScreen 弹窗时点“更多信息 → 仍要运行”。
 
 ## 支持的 Agent 与数据来源
 
@@ -25,6 +34,14 @@
 npm install          # 只安装 @tauri-apps/cli
 npm run dev          # 开发模式
 npm run build        # 打包，产物在 src-tauri/target/release/bundle/
+```
+
+签名并公证 macOS 通用版（需要 Developer ID 证书）：
+
+```bash
+rustup toolchain install stable --profile minimal --target aarch64-apple-darwin x86_64-apple-darwin
+xcrun notarytool store-credentials AgentTracker --apple-id <Apple ID> --team-id <Team ID>
+npm run build:mac    # 产物：dist/AgentTracker_<版本>_universal.dmg（加 SKIP_NOTARIZE=1 只签名）
 ```
 
 在 macOS 上交叉编译 Windows x64（GNU 工具链，不需要 MSVC SDK）：
