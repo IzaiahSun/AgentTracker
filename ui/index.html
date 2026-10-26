@@ -49,6 +49,18 @@
 
     <section class="card">
       <div class="card-head">
+        <h2>近一年热力图</h2>
+        <span class="muted" id="heatSummary"></span>
+      </div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="heat-foot">
+        <span>点击某一天只看当天</span>
+        <span class="heat-scale">少 <i style="background:var(--h0)"></i><i style="background:var(--h1)"></i><i style="background:var(--h2)"></i><i style="background:var(--h3)"></i><i style="background:var(--h4)"></i> 多</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
         <h2>每日用量</h2>
         <div class="seg small" id="groupBy" role="group" aria-label="分组">
           <button data-v="agent" class="on">按 Agent</button>

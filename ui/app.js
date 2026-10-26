@@ -185,6 +185,7 @@ function render() {
   renderChips();
   const rows = visibleRows();
   renderTiles(rows);
+  renderHeatmap();
   renderChart(rows);
   renderAgentCards(rows);
   renderDetail(rows);
@@ -246,6 +247,70 @@ function renderTiles(rows) {
         <div class="hint">${t.hint}</div></div>`
     )
     .join("");
+}
+
+const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+
+/// GitHub-style calendar of the past year (Monday-first weeks). Follows the
+/// agent filter and metric, not the date range; selected-range days are outlined.
+function renderHeatmap() {
+  const m = METRICS[state.metric];
+  const perDay = new Map();
+  for (const r of state.report.rows) {
+    if (state.hidden.has(r.agent)) continue;
+    const d = perDay.get(r.date) || { v: 0, req: 0 };
+    d.v += m(r);
+    d.req += r.requests;
+    perDay.set(r.date, d);
+  }
+  const today = todayDate();
+  const start = addDays(today, -364);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); // back to Monday
+  const days = [];
+  for (let d = new Date(start); d <= today; d = addDays(d, 1)) days.push(new Date(d));
+
+  // Quartiles of non-zero days -> levels 1..4.
+  const vals = days.map((d) => (perDay.get(ymd(d)) || { v: 0 }).v).filter((v) => v > 0).sort((a, b) => a - b);
+  const q = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] || 0;
+  const t1 = q(0.25), t2 = q(0.5), t3 = q(0.75);
+  const level = (v) => (v <= 0 ? 0 : v <= t1 ? 1 : v <= t2 ? 2 : v <= t3 ? 3 : 4);
+
+  const [ra, rb] = rangeBounds().map(ymd);
+  const el = $("#heatmap");
+  const weeks = Math.ceil(days.length / 7);
+  const G = 3, L = 22, T = 16;
+  // Cells grow to fill the card, between 10px and 20px.
+  const C = Math.max(10, Math.min(20, Math.floor((el.clientWidth - L) / weeks - G)));
+  const W = L + weeks * (C + G), H = T + 7 * (C + G);
+  let svg = `<svg width="${W}" height="${H}" role="img" aria-label="近一年每日 token 用量热力图">`;
+  [1, 3, 5].forEach((wd) => {
+    svg += `<text class="lbl" x="0" y="${T + (wd - 1) * (C + G) + C - 2}">${WEEKDAYS[wd]}</text>`;
+  });
+  let lastMonth = -1, lastLabelX = -99;
+  let total = 0, active = 0;
+  days.forEach((d, i) => {
+    const w = Math.floor(i / 7), wd = i % 7;
+    const x = L + w * (C + G), y = T + wd * (C + G);
+    if (wd === 0 && d.getMonth() !== lastMonth) {
+      lastMonth = d.getMonth();
+      if (x - lastLabelX > 28) {
+        svg += `<text class="lbl" x="${x}" y="10">${d.getMonth() + 1}月</text>`;
+        lastLabelX = x;
+      }
+    }
+    const key = ymd(d);
+    const v = (perDay.get(key) || { v: 0 }).v;
+    total += v;
+    if (v > 0) active++;
+    const sel = key >= ra && key <= rb ? " sel" : "";
+    svg += `<rect class="cell${sel}" data-d="${key}" x="${x}" y="${y}" width="${C}" height="${C}" fill="var(--h${level(v)})"/>`;
+  });
+  svg += "</svg>";
+  const keepRight = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+  el.innerHTML = svg;
+  el._perDay = perDay;
+  if (keepRight) el.scrollLeft = el.scrollWidth;
+  $("#heatSummary").textContent = `${fmt(total)} tokens · ${active} 天有用量`;
 }
 
 /// Builds per-day stacks: [{date, segs:[{key, slot, v}], sum}]; keys sorted by range total.
@@ -351,15 +416,22 @@ function renderChart(rows) {
 }
 
 function showTooltip(ev, s) {
-  const tip = $("#tooltip");
   const segs = s.segs.filter((g) => g.v > 0).sort((a, b) => b.v - a.v);
-  tip.innerHTML =
+  showTip(
+    ev,
     `<div class="t">${s.date}</div>` +
-    (segs.length
-      ? segs
-          .map((g) => `<div class="row"><span><i style="background:${slotColor(g.slot)}"></i>${esc(g.key)}</span><b>${fmt(g.v)}</b></div>`)
-          .join("") + `<div class="row sum"><span>合计</span><b>${full(s.sum)}</b></div>`
-      : `<div class="muted">无用量</div>`);
+      (segs.length
+        ? segs
+            .map((g) => `<div class="row"><span><i style="background:${slotColor(g.slot)}"></i>${esc(g.key)}</span><b>${fmt(g.v)}</b></div>`)
+            .join("") + `<div class="row sum"><span>合计</span><b>${full(s.sum)}</b></div>`
+        : `<div class="muted">无用量</div>`)
+  );
+}
+
+/// Shows the shared tooltip near the pointer, kept inside the viewport.
+function showTip(ev, html) {
+  const tip = $("#tooltip");
+  tip.innerHTML = html;
   tip.hidden = false;
   const r = tip.getBoundingClientRect();
   let left = ev.clientX + 14;
@@ -504,6 +576,26 @@ function init() {
   });
   $("#refresh").addEventListener("click", refresh);
 
+  const heat = $("#heatmap");
+  heat.addEventListener("mousemove", (e) => {
+    const c = e.target.closest("rect.cell");
+    if (!c) return ($("#tooltip").hidden = true);
+    const key = c.dataset.d;
+    const d = heat._perDay.get(key) || { v: 0, req: 0 };
+    showTip(e, `<div class="t">${key} 周${WEEKDAYS[parseYmd(key).getDay()]}</div>
+      <div class="row"><span>Token</span><b>${full(d.v)}</b></div>
+      <div class="row"><span>请求</span><b>${full(d.req)}</b></div>`);
+  });
+  heat.addEventListener("mouseleave", () => ($("#tooltip").hidden = true));
+  heat.addEventListener("click", (e) => {
+    const c = e.target.closest("rect.cell");
+    if (!c) return;
+    Object.assign(state, { range: -1, from: c.dataset.d, to: c.dataset.d });
+    $("#range").querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+    savePrefs();
+    render();
+  });
+
   const chart = $("#chart");
   chart.addEventListener("mousemove", (e) => {
     const hit = e.target.closest(".hit");
@@ -514,7 +606,11 @@ function init() {
   let rt;
   new ResizeObserver(() => {
     clearTimeout(rt);
-    rt = setTimeout(() => state.report && renderChart(visibleRows()), 80);
+    rt = setTimeout(() => {
+      if (!state.report) return;
+      renderChart(visibleRows());
+      renderHeatmap();
+    }, 80);
   }).observe(chart);
 
   // Rescan periodically and whenever the window regains focus.
