@@ -20,6 +20,10 @@ export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 # Updater signing key (signs the installer for in-app updates).
 export TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$HOME/.tauri/agenttracker.key}"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+# `tauri signer sign` only accepts the key's contents, not a path.
+if [[ -f "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY")"
+fi
 
 npx tauri build --target "$TARGET" --bundles nsis
 

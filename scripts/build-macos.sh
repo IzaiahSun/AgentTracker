@@ -26,6 +26,10 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-AgentTracker}"
 export PATH="$(rustup run stable rustc --print sysroot)/bin:$PATH"
 export TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$HOME/.tauri/agenttracker.key}"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+# `tauri signer sign` only accepts the key's contents, not a path.
+if [[ -f "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY")"
+fi
 
 notarize() {
   [[ "${SKIP_NOTARIZE:-}" == 1 ]] && return
