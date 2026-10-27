@@ -1,8 +1,10 @@
 pub mod claude;
 pub mod codex;
 pub mod dsh;
+pub mod hermes;
 pub mod openclaw;
 pub mod opencode;
+pub mod zcode;
 
 use crate::model::{Event, SourceStatus};
 use rayon::prelude::*;

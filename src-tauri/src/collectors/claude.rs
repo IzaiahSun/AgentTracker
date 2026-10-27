@@ -101,6 +101,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
             _ => None,
         };
         out.push(Event {
+            requests: 1,
             key,
             ts_ms: ts,
             agent: agent_for(v.get("entrypoint").and_then(Value::as_str), cowork),

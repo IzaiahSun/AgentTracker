@@ -36,6 +36,8 @@ Get the latest build from [Releases](https://github.com/IzaiahSun/AgentTracker/r
 | OpenCode | `~/.local/share/opencode/`: `opencode.db` (`message` and `session_message` tables) plus legacy `storage/message/**.json` | Deduplicated by message id across all three |
 | OpenClaw | `~/.openclaw/agents/*/sessions/*.jsonl` and `*/agent/openclaw-agent.sqlite` (`$OPENCLAW_DIR`) | `message.usage {input, output, cacheRead, cacheWrite}` |
 | DeepSeek Harness | `~/.dsh/sessions/**/session[.vN].jsonl[.zstd]` (`$DSH_HOME`) | One usage record per turn/step, plus `compaction/summary`; events inherited from a parent session (`seq < seedLength`) are skipped |
+| ZCode (Z.ai) | `~/.zcode/cli/db/db.sqlite` (`$ZCODE_DATA_BASE_DIR`) | Assistant rows of the `message` table; CLI, TUI and desktop share one database |
+| Hermes Agent (Nous Research) | `~/.hermes/state.db` and `profiles/*/state.db` (`$HERMES_HOME`) | `session_model_usage` totals per session and model; Hermes keeps no per-call times, so each row counts on its last-seen day |
 
 Token fields from every agent are normalized to the same meaning:
 
@@ -43,7 +45,7 @@ Token fields from every agent are normalized to the same meaning:
 - **Output**: includes reasoning / thinking tokens (OpenCode's separate `reasoning` count is added)
 - **Cache read / cache write**
 
-The OpenClaw and DeepSeek Harness parsers have only been tested against fixtures. If your numbers look off, please open an issue.
+The OpenClaw, DeepSeek Harness, ZCode and Hermes Agent parsers have only been tested against fixtures. If your numbers look off, please open an issue.
 
 ## Development
 

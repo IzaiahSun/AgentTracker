@@ -150,6 +150,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
                 }
                 let id = data.get("compactionId").and_then(Value::as_str).unwrap_or("");
                 out.push(Event {
+                    requests: 1,
                     key: Some(format!("dsh:{session_id}:compaction:{id}:{seq}")),
                     ts_ms: time,
                     agent: AGENT,
@@ -186,6 +187,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
             continue;
         }
         out.push(Event {
+            requests: 1,
             key: Some(format!("dsh:{session_id}:{turn}:{step}")),
             ts_ms: if time > 0 { time } else { created },
             agent: AGENT,

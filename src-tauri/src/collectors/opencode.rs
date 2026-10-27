@@ -84,6 +84,7 @@ fn event_from(id: &str, v: &Value, fallback_ts: Option<i64>, session_dir: Option
         .or(session_dir)
         .map(str::to_string);
     Some(Event {
+        requests: 1,
         key: Some(format!("opencode:{id}")),
         ts_ms: ts,
         agent: AGENT,

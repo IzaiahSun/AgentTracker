@@ -70,6 +70,7 @@ fn event_from(v: &Value, cwd: Option<&str>) -> Option<Event> {
         .unwrap_or("unknown")
         .to_string();
     Some(Event {
+        requests: 1,
         key: v
             .get("id")
             .and_then(Value::as_str)

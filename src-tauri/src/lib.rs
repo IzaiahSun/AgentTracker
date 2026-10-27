@@ -19,6 +19,8 @@ const COLLECTORS: &[Collector] = &[
     collectors::opencode::collect,
     collectors::openclaw::collect,
     collectors::dsh::collect,
+    collectors::zcode::collect,
+    collectors::hermes::collect,
 ];
 
 pub fn build_report(cache: &FileCache) -> Report {
@@ -42,10 +44,10 @@ pub fn build_report(cache: &FileCache) -> Report {
             let (date, hour) = local_date_hour(e.ts_ms);
             let project = projects.resolve(e.cwd.as_deref());
             let h = hourly.entry((date.clone(), hour, e.agent)).or_default();
-            h.0 += 1;
+            h.0 += e.requests;
             h.1 += e.tokens.input + e.tokens.output + e.tokens.cache_read + e.tokens.cache_write;
             let b = buckets.entry((date, e.agent, e.model, project)).or_default();
-            b.0 += 1;
+            b.0 += e.requests;
             b.1.add(&e.tokens);
         }
         sources.push(status);

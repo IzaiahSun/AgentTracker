@@ -35,12 +35,16 @@
 | OpenCode | `~/.local/share/opencode/`：`opencode.db`（`message`、`session_message` 表）以及旧版 `storage/message/**.json` | 三处按消息 id 去重 |
 | OpenClaw | `~/.openclaw/agents/*/sessions/*.jsonl`，以及 `*/agent/openclaw-agent.sqlite`（`$OPENCLAW_DIR`） | `message.usage {input,output,cacheRead,cacheWrite}` |
 | DeepSeek Harness | `~/.dsh/sessions/**/session[.vN].jsonl[.zstd]`（`$DSH_HOME`） | 每个 turn/step 取一次 usage，另计 `compaction/summary`；跳过 `seedLength` 之前从父会话继承的事件 |
+| ZCode（智谱 Z.ai） | `~/.zcode/cli/db/db.sqlite`（`$ZCODE_DATA_BASE_DIR`） | 读取 `message` 表里的助手消息；命令行、TUI 和桌面端共用一个数据库 |
+| Hermes Agent（Nous Research） | `~/.hermes/state.db` 及 `profiles/*/state.db`（`$HERMES_HOME`） | 读取 `session_model_usage` 里按会话和模型汇总的用量；Hermes 不记录每次调用的时间，所以整行算在最后一次使用的那天 |
 
 各家的 token 字段统一成同一套口径：
 
 - **输入**：未命中缓存的输入（Codex 已扣除 `cached_input_tokens`）
 - **输出**：包含推理 / thinking token（OpenCode 单独上报的 `reasoning` 会加进来）
 - **缓存读 / 缓存写**
+
+OpenClaw、DeepSeek Harness、ZCode 和 Hermes Agent 的解析只用模拟数据测试过，如果数字看起来不对，欢迎提 issue。
 
 ## 开发
 

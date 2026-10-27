@@ -1,19 +1,22 @@
 "use strict";
 
-// Agents in fixed color-slot order; stacks follow this order so adjacent
-// segments keep the palette's validated adjacent pairs.
-const AGENTS = [
-  { name: "Codex Desktop", slot: 1 },
-  { name: "Claude Code Desktop", slot: 2 },
-  { name: "OpenCode", slot: 3 },
-  { name: "Claude Code CLI", slot: 4 },
-  { name: "Claude Cowork", slot: 5 },
-  { name: "DeepSeek Harness", slot: 6 },
-  { name: "Codex CLI", slot: 7 },
-  { name: "OpenClaw", slot: 8 },
-  { name: "Claude Code SDK", slot: 0 },
-  { name: "Codex IDE", slot: 0 },
-];
+// Preferred color slot per agent. There are more agents than the 8 palette
+// slots, so slots are handed out by all-time usage (see assignAgentSlots): an
+// agent keeps its preferred slot when free, otherwise takes the first free one.
+const AGENT_SLOTS = {
+  "Codex Desktop": 1,
+  "Claude Code Desktop": 2,
+  OpenCode: 3,
+  "Claude Code CLI": 4,
+  "Claude Cowork": 5,
+  "DeepSeek Harness": 6,
+  "Codex CLI": 7,
+  OpenClaw: 8,
+  ZCode: 6,
+  "Hermes Agent": 8,
+};
+let agentSlotMap = new Map();
+let agentRank = new Map();
 const MODEL_SLOTS = 7;
 // Internal key for the folded series; shown as t("other").
 const OTHER = "__other__";
@@ -62,13 +65,32 @@ const label = (k) => (k === OTHER ? t("other") : k);
 function slotColor(slot) {
   return slot ? `var(--s${slot})` : "var(--other)";
 }
+/// Ranks agents by all-time tokens (independent of filters, so colors and
+/// order stay put) and gives the top ones palette slots.
+function assignAgentSlots() {
+  const tot = new Map();
+  for (const r of state.report.rows) tot.set(r.agent, (tot.get(r.agent) || 0) + METRICS.total(r));
+  const ranked = [...tot.keys()].sort((a, b) => tot.get(b) - tot.get(a));
+  agentRank = new Map(ranked.map((n, i) => [n, i]));
+  agentSlotMap = new Map();
+  const used = new Set();
+  // Preferred slots first (busier agents win a contested slot), then the rest.
+  for (const n of ranked) {
+    const slot = AGENT_SLOTS[n];
+    if (slot && !used.has(slot)) used.add(slot), agentSlotMap.set(n, slot);
+  }
+  for (const n of ranked) {
+    if (agentSlotMap.has(n)) continue;
+    const slot = [1, 2, 3, 4, 5, 6, 7, 8].find((x) => !used.has(x)) || 0;
+    if (slot) used.add(slot);
+    agentSlotMap.set(n, slot);
+  }
+}
 function agentSlot(name) {
-  const a = AGENTS.find((x) => x.name === name);
-  return a ? a.slot : 0;
+  return agentSlotMap.get(name) || 0;
 }
 function agentOrder(name) {
-  const i = AGENTS.findIndex((x) => x.name === name);
-  return i < 0 ? 99 : i;
+  return agentRank.has(name) ? agentRank.get(name) : 99;
 }
 
 // ---------- persistence (per-viewer convenience only) ----------
@@ -192,6 +214,7 @@ function syncDateInputs() {
 function render() {
   if (!state.report) return;
   syncDateInputs();
+  assignAgentSlots();
   renderChips();
   const rows = visibleRows();
   renderTiles(rows);
@@ -207,10 +230,8 @@ function render() {
 }
 
 function renderChips() {
-  // All-time token totals, largest first; independent of the filter so chips don't jump.
-  const tot = new Map();
-  for (const r of state.report.rows) tot.set(r.agent, (tot.get(r.agent) || 0) + METRICS.total(r));
-  const names = [...tot.keys()].sort((a, b) => tot.get(b) - tot.get(a));
+  // All-time usage order; independent of the filter so chips don't jump.
+  const names = [...agentRank.keys()];
   $("#agents").innerHTML = names
     .map(
       (n) => `<button class="chip ${state.hidden.has(n) ? "off" : ""}" data-agent="${esc(n)}" aria-pressed="${!state.hidden.has(n)}">
@@ -261,7 +282,10 @@ function renderTiles(rows) {
     {
       label: t("tileCost"),
       value: money(cost),
-      hint: plan > 0 ? t("tileCostPlan", { x: (cost / plan).toFixed(1), plan: money(plan) }) : t("tileCostHint"),
+      hint:
+        plan > 0
+          ? t("tileCostPlan", { x: (cost / plan).toFixed(1), monthly: money(planMonthly), days: days.length, plan: money(plan) })
+          : t("tileCostHint"),
       title: moneyFull(cost),
     },
     { label: t("tileRequests"), value: fmt(req), hint: t("tileRequestsHint"), title: full(req) },
@@ -563,6 +587,8 @@ const DEFAULT_PATHS = {
   "DeepSeek Harness": ["~/.dsh/sessions", "$DSH_HOME"],
   OpenCode: ["~/.local/share/opencode", null],
   Codex: ["~/.codex/sessions", "$CODEX_HOME"],
+  ZCode: ["~/.zcode/cli/db", "$ZCODE_DATA_BASE_DIR"],
+  "Hermes Agent": ["~/.hermes", "$HERMES_HOME"],
   "Claude Code": ["~/.claude/projects", "$CLAUDE_CONFIG_DIR"],
 };
 function defaultPath(agent) {

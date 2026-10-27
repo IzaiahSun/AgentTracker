@@ -33,6 +33,8 @@ impl Tokens {
 pub struct Event {
     /// Global dedup key (same request seen in several files/stores).
     pub key: Option<String>,
+    /// Model calls this event stands for (1, except for pre-aggregated sources).
+    pub requests: u64,
     pub ts_ms: i64,
     pub agent: &'static str,
     pub model: String,

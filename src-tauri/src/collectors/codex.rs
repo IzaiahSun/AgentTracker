@@ -103,7 +103,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
                     v.get("timestamp").and_then(Value::as_str).unwrap_or(""),
                     total.unwrap_or(0)
                 ));
-                out.push(Event { key, ts_ms: ts, agent, model: model.clone(), cwd: cwd.clone(), tokens });
+                out.push(Event { key, requests: 1, ts_ms: ts, agent, model: model.clone(), cwd: cwd.clone(), tokens });
             }
             _ => {}
         }
