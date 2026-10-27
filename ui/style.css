@@ -161,7 +161,7 @@ main { padding: 16px 24px 40px; display: flex; flex-direction: column; gap: 16px
 .chart .hit:hover { fill: color-mix(in srgb, var(--ink) 5%, transparent); }
 .chart .empty { fill: var(--muted); font-size: 13px; }
 
-.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 12px; }
 .agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
 .agent-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .agent-card h3 { margin: 0; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }

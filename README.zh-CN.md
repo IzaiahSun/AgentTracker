@@ -4,6 +4,8 @@
 
 本地统计各个 coding agent 每天的 token 用量，按模型分别汇总。基于 Tauri 2（系统原生 WebView：macOS WKWebView / Windows WebView2 / Linux WebKitGTK），安装包只有几 MB。只读本地日志，不联网。
 
+![AgentTracker 界面（演示数据）](docs/screenshot.png)
+
 界面支持中英双语，根据系统语言自动选择（系统为中文时显示中文，其余显示英文）。
 
 其他功能：
@@ -46,6 +48,13 @@
 npm install          # 只安装 @tauri-apps/cli
 npm run dev          # 开发模式
 npm run build        # 打包，产物在 src-tauri/target/release/bundle/
+```
+
+不启动 Tauri、用虚构数据在浏览器里预览：
+
+```bash
+node scripts/demo-report.mjs     # 生成 dev/demo-report.json
+python3 -m http.server 5178      # 然后打开 http://localhost:5178/ui/?data=demo-report.json
 ```
 
 签名并公证 macOS 通用版（需要 Developer ID 证书）：

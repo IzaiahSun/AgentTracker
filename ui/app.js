@@ -137,8 +137,10 @@ function dateList() {
 // ---------- data ----------
 async function fetchReport() {
   if (window.__TAURI__) return window.__TAURI__.core.invoke("get_report");
-  // Browser preview fallback: serve a dump from `agent-tracker --report`.
-  const res = await fetch("sample-report.json");
+  // Browser preview only (repo root served over http, page at /ui/): a dump from
+  // `agent-tracker --report` in dev/, never inside ui/ (it would be bundled).
+  const file = new URLSearchParams(location.search).get("data") || "sample-report.json";
+  const res = await fetch("../dev/" + file.replace(/[^\w.-]/g, ""));
   return res.json();
 }
 

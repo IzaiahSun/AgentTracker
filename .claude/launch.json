@@ -4,7 +4,11 @@
     {
       "name": "ui-preview",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5178", "--directory", "ui"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5178"
+      ],
       "port": 5178
     }
   ]

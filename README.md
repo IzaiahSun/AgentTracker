@@ -4,6 +4,8 @@
 
 A tiny desktop app that tracks how many tokens your coding agents use each day, broken down by model. It reads the agents' local logs. Nothing leaves your machine. Built with Tauri 2 on the system webview (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux), so installers are only a few MB.
 
+![AgentTracker with demo data](docs/screenshot.png)
+
 - Daily stacked bar chart, grouped by agent or by model
 - GitHub-style heatmap of the past year (click a day to focus on it)
 - Per-agent model breakdown: input, output, cache read, cache write
@@ -49,6 +51,13 @@ The OpenClaw and DeepSeek Harness parsers have only been tested against fixtures
 npm install          # installs only @tauri-apps/cli
 npm run dev          # run in development mode
 npm run build        # bundle into src-tauri/target/release/bundle/
+```
+
+Browser preview without Tauri, using made-up data:
+
+```bash
+node scripts/demo-report.mjs     # writes dev/demo-report.json
+python3 -m http.server 5178      # then open http://localhost:5178/ui/?data=demo-report.json
 ```
 
 Signed and notarized universal macOS build (needs a Developer ID certificate):

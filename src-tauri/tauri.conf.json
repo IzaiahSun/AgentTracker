@@ -1,10 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AgentTracker",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "identifier": "com.izaiahsun.agenttracker",
   "build": {
-    "frontendDist": "../ui"
+    "frontendDist": "../ui",
+    "beforeBuildCommand": "node scripts/check-ui.mjs"
   },
   "app": {
     "withGlobalTauri": true,
