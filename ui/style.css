@@ -133,7 +133,7 @@ main { padding: 16px 24px 40px; display: flex; flex-direction: column; gap: 16px
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
 .tile .label { color: var(--ink-2); font-size: 12px; }
 .tile .value { font-size: 24px; font-weight: 600; margin-top: 2px; letter-spacing: -0.01em; }
-.tile .hint { color: var(--muted); font-size: 11px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .hint { color: var(--muted); font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
@@ -222,10 +222,14 @@ table.mini tr:last-child td { border-bottom: 0; }
 .stat .label { color: var(--ink-2); font-size: 12px; }
 .stat .value { font-size: 20px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .stat .value.small { font-size: 16px; padding-top: 4px; }
-.stat .hint { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .hint { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 
 .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
 .split > .card { min-width: 0; }
+.rhythm { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.rhythm > div { min-width: 0; }
+.sub-title { color: var(--ink-2); font-size: 12px; margin-bottom: 4px; }
+.chart.mini { height: 240px; }
 .bar.stacked { display: flex; gap: 0; background: var(--grid); }
 .bar.stacked > b { border-radius: 0; flex: none; }
 .bar.stacked > b:first-child { border-radius: 2px 0 0 2px; }

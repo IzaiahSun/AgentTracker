@@ -205,9 +205,10 @@ function render() {
 }
 
 function renderChips() {
+  // All-time token totals, largest first; independent of the filter so chips don't jump.
   const tot = new Map();
-  for (const r of state.report.rows) tot.set(r.agent, (tot.get(r.agent) || 0) + 1);
-  const names = [...tot.keys()].sort((a, b) => agentOrder(a) - agentOrder(b));
+  for (const r of state.report.rows) tot.set(r.agent, (tot.get(r.agent) || 0) + METRICS.total(r));
+  const names = [...tot.keys()].sort((a, b) => tot.get(b) - tot.get(a));
   $("#agents").innerHTML = names
     .map(
       (n) => `<button class="chip ${state.hidden.has(n) ? "off" : ""}" data-agent="${esc(n)}" aria-pressed="${!state.hidden.has(n)}">

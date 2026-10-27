@@ -1,6 +1,6 @@
 "use strict";
 
-// Streaks & records, weekly rhythm (weekday x hour) and per-project usage.
+// Streaks & records, time-of-day rhythm and per-project usage.
 
 /// Per-day totals of the selected metric and requests, honoring the agent filter.
 function dailyTotals(metric = METRICS[state.metric]) {
@@ -73,36 +73,48 @@ function renderRecords() {
     .join("");
 }
 
-/// Weekday x hour punch card of requests in the selected range (Monday first).
+/// Bar chart SVG for `items` [{label, v}] sized to `el`; labels where `labelAt(i)`.
+function miniBars(el, items, labelAt, aria) {
+  const W = Math.max(120, el.clientWidth), H = el.clientHeight || 150;
+  const pad = { t: 6, b: 20 };
+  const ih = H - pad.t - pad.b;
+  const max = Math.max(1, ...items.map((x) => x.v));
+  const peak = items.reduce((bi, x, i) => (x.v > items[bi].v ? i : bi), 0);
+  const band = W / items.length;
+  const bw = Math.max(3, Math.min(22, band * 0.7));
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">`;
+  svg += `<line class="baseline" x1="0" x2="${W}" y1="${pad.t + ih + 0.5}" y2="${pad.t + ih + 0.5}"/>`;
+  items.forEach((x, i) => {
+    const h = (x.v / max) * ih;
+    const bx = band * i + (band - bw) / 2;
+    if (h > 0) {
+      const top = pad.t + ih - h, r = Math.min(3, bw / 2, h);
+      svg += `<path fill="${x.v && i === peak ? "var(--h4)" : "var(--h3)"}" d="M${bx},${pad.t + ih} V${top + r} Q${bx},${top} ${bx + r},${top} H${bx + bw - r} Q${bx + bw},${top} ${bx + bw},${top + r} V${pad.t + ih} Z"/>`;
+    }
+    if (labelAt(i)) svg += `<text class="tick" x="${band * i + band / 2}" y="${H - 5}" text-anchor="middle">${esc(x.label)}</text>`;
+    svg += `<rect class="hit" data-i="${i}" x="${band * i}" y="0" width="${band}" height="${pad.t + ih}"/>`;
+  });
+  return svg + "</svg>";
+}
+
+/// Requests by hour of day and by weekday (Monday first) in the selected range.
 function renderRhythm() {
   const days = new Set(dateList());
-  const grid = Array.from({ length: 7 }, () => new Array(24).fill(null).map(() => ({ req: 0, tok: 0 })));
+  const hours = Array.from({ length: 24 }, (_, h) => ({ label: String(h), v: 0, tok: 0, tip: hourLabel(h) }));
+  const wds = Array.from({ length: 7 }, (_, i) => ({ label: t("weekdays")[(i + 1) % 7], v: 0, tok: 0, tip: t("weekdaysLong")[(i + 1) % 7] }));
   for (const h of state.report.hours || []) {
     if (state.hidden.has(h.agent) || !days.has(h.date)) continue;
-    const c = grid[(parseYmd(h.date).getDay() + 6) % 7][h.hour];
-    c.req += h.requests;
-    c.tok += h.tokens;
+    const w = wds[(parseYmd(h.date).getDay() + 6) % 7];
+    hours[h.hour].v += h.requests;
+    hours[h.hour].tok += h.tokens;
+    w.v += h.requests;
+    w.tok += h.tokens;
   }
-  const vals = grid.flat().map((c) => c.req).filter((v) => v > 0).sort((a, b) => a - b);
-  const q = (p) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] || 0;
-  const t1 = q(0.25), t2 = q(0.5), t3 = q(0.75);
-  const level = (v) => (v <= 0 ? 0 : v <= t1 ? 1 : v <= t2 ? 2 : v <= t3 ? 3 : 4);
-
-  const el = $("#rhythm");
-  const L = 34, T = 16, G = 3;
-  const C = Math.max(9, Math.min(26, Math.floor((el.clientWidth - L) / 24 - G)));
-  const W = L + 24 * (C + G), H = T + 7 * (C + G);
-  let svg = `<svg width="${W}" height="${H}" role="img" aria-label="${t("rhythmAria")}">`;
-  for (let hr = 0; hr < 24; hr += 3) svg += `<text class="lbl" x="${L + hr * (C + G)}" y="10">${hr}</text>`;
-  for (let wd = 0; wd < 7; wd++) {
-    const name = t("weekdays")[(wd + 1) % 7];
-    svg += `<text class="lbl" x="0" y="${T + wd * (C + G) + C - 2}">${name}</text>`;
-    for (let hr = 0; hr < 24; hr++) {
-      svg += `<rect class="cell" data-w="${wd}" data-h="${hr}" x="${L + hr * (C + G)}" y="${T + wd * (C + G)}" width="${C}" height="${C}" fill="var(--h${level(grid[wd][hr].req)})"/>`;
-    }
-  }
-  el.innerHTML = svg + "</svg>";
-  el._grid = grid;
+  const hEl = $("#rhythmHours"), wEl = $("#rhythmDays");
+  hEl.innerHTML = miniBars(hEl, hours, (i) => i % 3 === 0, t("rhythmHoursAria"));
+  wEl.innerHTML = miniBars(wEl, wds, () => true, t("rhythmDaysAria"));
+  hEl._items = hours;
+  wEl._items = wds;
 }
 
 /// Short display names for project paths; duplicates get their parent folder.
@@ -176,17 +188,17 @@ function bindInsights() {
     showAllProjects = !showAllProjects;
     renderProjects(visibleRows());
   });
-  const rh = $("#rhythm");
-  rh.addEventListener("mousemove", (e) => {
-    const c = e.target.closest("rect.cell");
-    if (!c || !rh._grid) return ($("#tooltip").hidden = true);
-    const wd = Number(c.dataset.w), hr = Number(c.dataset.h);
-    const g = rh._grid[wd][hr];
-    showTip(e, `<div class="t">${t("weekdaysLong")[(wd + 1) % 7]} ${hourLabel(hr)}</div>
-      <div class="row"><span>${t("requests")}</span><b>${full(g.req)}</b></div>
-      <div class="row"><span>${t("tokens")}</span><b>${full(g.tok)}</b></div>`);
-  });
-  rh.addEventListener("mouseleave", () => ($("#tooltip").hidden = true));
+  for (const el of [$("#rhythmHours"), $("#rhythmDays")]) {
+    el.addEventListener("mousemove", (e) => {
+      const hit = e.target.closest(".hit");
+      if (!hit || !el._items) return ($("#tooltip").hidden = true);
+      const x = el._items[Number(hit.dataset.i)];
+      showTip(e, `<div class="t">${esc(x.tip)}</div>
+        <div class="row"><span>${t("requests")}</span><b>${full(x.v)}</b></div>
+        <div class="row"><span>${t("tokens")}</span><b>${full(x.tok)}</b></div>`);
+    });
+    el.addEventListener("mouseleave", () => ($("#tooltip").hidden = true));
+  }
 }
 
 // ---------- prices dialog ----------

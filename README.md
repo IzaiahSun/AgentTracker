@@ -9,7 +9,7 @@ A tiny desktop app that tracks how many tokens your coding agents use each day, 
 - Per-agent model breakdown: input, output, cache read, cache write
 - Estimated cost at API prices (editable price table, optional subscription comparison) and how much caching saved
 - Per-project usage (sessions are mapped to their git repository, worktrees included)
-- Weekly rhythm (weekday × hour), streaks and personal records
+- When you work (requests by hour of day and day of week), streaks and personal records
 - Shareable weekly / monthly / yearly summary cards (PNG)
 - Menu bar (macOS) / tray (Windows, Linux) icon with today's and this week's usage; closing the window keeps it running there, quit from its menu
 - Preset ranges (today / 7 / 30 / 90 days / all) or a custom date range
