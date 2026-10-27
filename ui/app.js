@@ -201,6 +201,7 @@ function render() {
   renderAgentCards(rows);
   renderDetail(rows);
   renderSources();
+  updateTray();
 }
 
 function renderChips() {
@@ -628,6 +629,7 @@ async function init() {
   bindInsights();
   bindPrices();
   bindShare();
+  bindTray();
   bindSeg("#range", "range", Number);
   const onDate = () => {
     const f = $("#from").value, t = $("#to").value;
@@ -700,8 +702,8 @@ async function init() {
   setTimeout(checkForUpdate, 3000);
   setInterval(checkForUpdate, 6 * 3600 * 1000);
 
-  // Rescan periodically and whenever the window regains focus.
-  setInterval(() => document.visibilityState === "visible" && refresh(), 120000);
+  // Rescan periodically (also while hidden, to keep the menu bar current) and on focus.
+  setInterval(refresh, 120000);
   window.addEventListener("focus", () => {
     if (state.report && Date.now() - new Date(state.report.generated_at).getTime() > 30000) refresh();
   });

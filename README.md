@@ -11,6 +11,7 @@ A tiny desktop app that tracks how many tokens your coding agents use each day, 
 - Per-project usage (sessions are mapped to their git repository, worktrees included)
 - Weekly rhythm (weekday × hour), streaks and personal records
 - Shareable weekly / monthly / yearly summary cards (PNG)
+- Menu bar (macOS) / tray (Windows, Linux) icon with today's and this week's usage; closing the window keeps it running there, quit from its menu
 - Preset ranges (today / 7 / 30 / 90 days / all) or a custom date range
 - Switchable metric: all tokens, excluding cache reads, input only, output only, …
 - Light and dark mode; English and Chinese UI, chosen from the system language

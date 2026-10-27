@@ -1,6 +1,7 @@
 mod collectors;
 mod model;
 mod project;
+mod tray;
 mod update;
 
 use collectors::FileCache;
@@ -8,6 +9,7 @@ use model::{local_date_hour, DailyRow, Event, HourRow, Report, SourceStatus, Tok
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
+use tauri::Manager;
 
 type Collector = fn(&FileCache) -> (Vec<Event>, SourceStatus);
 
@@ -84,7 +86,6 @@ pub fn build_report(cache: &FileCache) -> Report {
 
 #[tauri::command]
 async fn get_report(app: tauri::AppHandle) -> Result<Report, String> {
-    use tauri::Manager;
     // Parsing is CPU-bound; keep it off the async runtime's workers.
     tauri::async_runtime::spawn_blocking(move || build_report(&app.state::<FileCache>()))
         .await
@@ -151,17 +152,37 @@ pub fn run() {
         .setup(move |app| {
             if headless_update {
                 update::run_headless(app.handle());
+            } else {
+                tray::setup(app.handle())?;
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Keep running in the menu bar / tray; quit from its menu.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.app_handle().tray_by_id("main").is_some() {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_report,
             system_locale,
             save_image,
             reveal,
+            tray::update_tray,
             update::check_update,
             update::install_update
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // macOS: clicking the Dock icon brings the hidden window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                tray::show_main(app);
+            }
+            let _ = (app, event);
+        });
 }
