@@ -25,6 +25,7 @@ const METRICS = {
   output: (r) => r.output,
   cache_read: (r) => r.cache_read,
   cache_write: (r) => r.cache_write,
+  cost: (r) => costOf(r),
 };
 
 const state = {
@@ -51,6 +52,9 @@ function fmt(n) {
   return String(Math.round(n));
 }
 const full = (n) => n.toLocaleString("en-US");
+// Formatters for values of the selected metric (tokens, or USD for "cost").
+const fv = (v) => (state.metric === "cost" ? money(v) : fmt(v));
+const fvFull = (v) => (state.metric === "cost" ? moneyFull(v) : full(Math.round(v)));
 
 /// Display name for a series key.
 const label = (k) => (k === OTHER ? t("other") : k);
@@ -189,8 +193,11 @@ function render() {
   renderChips();
   const rows = visibleRows();
   renderTiles(rows);
+  renderRecords();
   renderHeatmap();
   renderChart(rows);
+  renderProjects(rows);
+  renderRhythm();
   renderAgentCards(rows);
   renderDetail(rows);
   renderSources();
@@ -213,7 +220,7 @@ function renderTiles(rows) {
   const days = dateList();
   const today = days[days.length - 1];
   const yesterday = ymd(addDays(parseYmd(today), -1));
-  let total = 0, todayV = 0, yestV = 0, req = 0, cr = 0, inAll = 0;
+  let total = 0, todayV = 0, yestV = 0, req = 0, cr = 0, inAll = 0, cost = 0, saved = 0;
   const byModel = new Map();
   for (const r of rows) {
     const v = m(r);
@@ -223,28 +230,43 @@ function renderTiles(rows) {
     byModel.set(r.model, (byModel.get(r.model) || 0) + v);
     cr += r.cache_read;
     inAll += r.input + r.cache_read + r.cache_write;
+    cost += costOf(r);
+    saved += cacheSavingsOf(r);
   }
   for (const r of state.report.rows) if (r.date === yesterday && !state.hidden.has(r.agent)) yestV += m(r);
   const top = [...byModel.entries()].sort((a, b) => b[1] - a[1])[0];
   const delta = yestV ? ((todayV - yestV) / yestV) * 100 : null;
+  // Subscription cost prorated over the range, for the "pays for itself N×" hint.
+  const plan = planMonthly * (days.length / 30.44);
   const tiles = [
     {
       label: t("tileTotal"),
-      value: fmt(total),
-      hint: t("tileTotalHint", { start: days[0], days: days.length, avg: fmt(total / Math.max(days.length, 1)) }),
-      title: full(total),
+      value: fv(total),
+      hint: t("tileTotalHint", { start: days[0], days: days.length, avg: fv(total / Math.max(days.length, 1)) }),
+      title: fvFull(total),
     },
     {
       label: today === ymd(todayDate()) ? t("tileToday") : t("tileLastDay", { date: today }),
-      value: fmt(todayV),
+      value: fv(todayV),
       hint:
         delta === null
-          ? t("prevDay", { prev: fmt(yestV) })
-          : t("vsYesterday", { sign: delta >= 0 ? "+" : "", pct: delta.toFixed(0), prev: fmt(yestV) }),
-      title: full(todayV),
+          ? t("prevDay", { prev: fv(yestV) })
+          : t("vsYesterday", { sign: delta >= 0 ? "+" : "", pct: delta.toFixed(0), prev: fv(yestV) }),
+      title: fvFull(todayV),
+    },
+    {
+      label: t("tileCost"),
+      value: money(cost),
+      hint: plan > 0 ? t("tileCostPlan", { x: (cost / plan).toFixed(1), plan: money(plan) }) : t("tileCostHint"),
+      title: moneyFull(cost),
     },
     { label: t("tileRequests"), value: fmt(req), hint: t("tileRequestsHint"), title: full(req) },
-    { label: t("tileCacheHit"), value: inAll ? ((cr / inAll) * 100).toFixed(1) + "%" : "—", hint: t("tileCacheHitHint") },
+    {
+      label: t("tileCacheHit"),
+      value: inAll ? ((cr / inAll) * 100).toFixed(1) + "%" : "—",
+      hint: saved > 0 ? t("tileCacheSaved", { v: money(saved) }) : t("tileCacheHitHint"),
+      title: t("tileCacheHitHint"),
+    },
     {
       label: t("tileTopModel"),
       value: top ? esc(top[0]) : "—",
@@ -254,7 +276,7 @@ function renderTiles(rows) {
   ];
   $("#tiles").innerHTML = tiles
     .map(
-      (t) => `<div class="tile" ${t.title ? `title="${t.title}"` : ""}><div class="label">${t.label}</div>
+      (t) => `<div class="tile" ${t.title ? `title="${esc(t.title)}"` : ""}><div class="label">${t.label}</div>
         <div class="value" ${t.small ? 'style="font-size:17px;padding-top:5px"' : ""}>${t.value}</div>
         <div class="hint">${t.hint}</div></div>`
     )
@@ -320,7 +342,7 @@ function renderHeatmap() {
   el.innerHTML = svg;
   el._perDay = perDay;
   if (keepRight) el.scrollLeft = el.scrollWidth;
-  $("#heatSummary").textContent = t("heatSummary", { total: fmt(total), days: active });
+  $("#heatSummary").textContent = t("heatSummary", { total: fv(total), days: active });
 }
 
 /// Builds per-day stacks: [{date, segs:[{key, slot, v}], sum}]; keys sorted by range total.
@@ -368,7 +390,7 @@ function niceMax(v) {
 function renderChart(rows) {
   const { keys, stacks } = buildSeries(rows);
   $("#legend").innerHTML = keys
-    .map((k) => `<span><i style="background:${slotColor(k.slot)}"></i>${esc(label(k.key))} <b>${fmt(k.total)}</b></span>`)
+    .map((k) => `<span><i style="background:${slotColor(k.slot)}"></i>${esc(label(k.key))} <b>${fv(k.total)}</b></span>`)
     .join("");
 
   const el = $("#chart");
@@ -388,7 +410,7 @@ function renderChart(rows) {
     const v = (max / 4) * i;
     const yy = y(v);
     svg += `<line class="${i === 0 ? "baseline" : "gridline"}" x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}"/>`;
-    svg += `<text class="tick" x="${pad.l - 8}" y="${yy + 4}" text-anchor="end">${fmt(v)}</text>`;
+    svg += `<text class="tick" x="${pad.l - 8}" y="${yy + 4}" text-anchor="end">${fv(v)}</text>`;
   }
   const labelEvery = Math.ceil(n / Math.max(1, Math.floor(iw / 64)));
   stacks.forEach((s, i) => {
@@ -432,8 +454,8 @@ function showTooltip(ev, s) {
     `<div class="t">${s.date}</div>` +
       (segs.length
         ? segs
-            .map((g) => `<div class="row"><span><i style="background:${slotColor(g.slot)}"></i>${esc(label(g.key))}</span><b>${fmt(g.v)}</b></div>`)
-            .join("") + `<div class="row sum"><span>${t("total")}</span><b>${full(s.sum)}</b></div>`
+            .map((g) => `<div class="row"><span><i style="background:${slotColor(g.slot)}"></i>${esc(label(g.key))}</span><b>${fv(g.v)}</b></div>`)
+            .join("") + `<div class="row sum"><span>${t("total")}</span><b>${fvFull(s.sum)}</b></div>`
         : `<div class="muted">${t("noUsage")}</div>`)
   );
 }
@@ -487,12 +509,12 @@ function renderAgentCards(rows) {
             <td title="${full(x.output)}">${fmt(x.output)}</td>
             <td title="${full(x.cache_read)}">${fmt(x.cache_read)}</td>
             <td title="${full(x.cache_write)}">${fmt(x.cache_write)}</td>
-            <td title="${full(x.v)}"><b>${fmt(x.v)}</b></td></tr>`
+            <td title="${fvFull(x.v)}"><b>${fv(x.v)}</b></td></tr>`
         )
         .join("");
       return `<article class="agent-card">
         <header><h3><i style="background:${slotColor(agentSlot(name))}"></i>${esc(name)}</h3>
-          <span><span class="total" title="${full(a.total)}">${fmt(a.total)}</span> <span class="muted">· ${t("calls", { n: fmt(a.requests) })}</span></span></header>
+          <span><span class="total" title="${fvFull(a.total)}">${fv(a.total)}</span> <span class="muted">· ${t("calls", { n: fmt(a.requests) })}</span></span></header>
         <table class="mini"><thead><tr><th>${t("model")}</th><th>${t("requests")}</th><th>${t("input")}</th><th>${t("output")}</th><th>${t("cacheRead")}</th><th>${t("cacheWrite")}</th><th>${t("total")}</th></tr></thead>
         <tbody>${body}</tbody></table></article>`;
     })
@@ -501,7 +523,15 @@ function renderAgentCards(rows) {
 
 function renderDetail(rows) {
   const m = METRICS[state.metric];
-  const sorted = [...rows].sort(
+  // Rows are per project; the detail table is per (day, agent, model).
+  const merged = new Map();
+  for (const r of rows) {
+    const k = r.date + "\u0000" + r.agent + "\u0000" + r.model;
+    const x = merged.get(k);
+    if (!x) merged.set(k, { ...r });
+    else for (const f of ["requests", "input", "output", "cache_read", "cache_write", "reasoning"]) x[f] += r[f] || 0;
+  }
+  const sorted = [...merged.values()].sort(
     (a, b) => b.date.localeCompare(a.date) || agentOrder(a.agent) - agentOrder(b.agent) || m(b) - m(a)
   );
   const LIMIT = 1500;
@@ -512,11 +542,11 @@ function renderDetail(rows) {
   for (const r of sorted.slice(0, LIMIT)) {
     if (r.date !== cur) {
       cur = r.date;
-      html += `<tr class="day"><td colspan="8">${r.date}</td><td class="num" title="${full(dayTotals.get(r.date))}">${fmt(dayTotals.get(r.date))}</td></tr>`;
+      html += `<tr class="day"><td colspan="8">${r.date}</td><td class="num" title="${fvFull(dayTotals.get(r.date))}">${fv(dayTotals.get(r.date))}</td></tr>`;
     }
     html += `<tr><td></td><td><span class="dot-inline" style="color:${slotColor(agentSlot(r.agent))}">●</span> ${esc(r.agent)}</td><td>${esc(r.model)}</td>
       <td class="num">${full(r.requests)}</td><td class="num">${full(r.input)}</td><td class="num">${full(r.output)}</td>
-      <td class="num">${full(r.cache_read)}</td><td class="num">${full(r.cache_write)}</td><td class="num"><b>${full(m(r))}</b></td></tr>`;
+      <td class="num">${full(r.cache_read)}</td><td class="num">${full(r.cache_write)}</td><td class="num"><b>${fvFull(m(r))}</b></td></tr>`;
   }
   $("#detail tbody").innerHTML = html || `<tr><td colspan="9" class="muted">${t("noData")}</td></tr>`;
   $("#detailCount").textContent =
@@ -594,6 +624,10 @@ async function init() {
   LANG = await detectLang();
   applyStaticStrings();
   loadPrefs();
+  loadPrices();
+  bindInsights();
+  bindPrices();
+  bindShare();
   bindSeg("#range", "range", Number);
   const onDate = () => {
     const f = $("#from").value, t = $("#to").value;
@@ -629,7 +663,7 @@ async function init() {
     const key = c.dataset.d;
     const d = heat._perDay.get(key) || { v: 0, req: 0 };
     showTip(e, `<div class="t">${key} ${t("tipWeekday", { d: t("weekdays")[parseYmd(key).getDay()] })}</div>
-      <div class="row"><span>Token</span><b>${full(d.v)}</b></div>
+      <div class="row"><span>${t(state.metric === "cost" ? "cost" : "tokens")}</span><b>${fvFull(d.v)}</b></div>
       <div class="row"><span>${t("requests")}</span><b>${full(d.req)}</b></div>`);
   });
   heat.addEventListener("mouseleave", () => ($("#tooltip").hidden = true));
@@ -656,6 +690,7 @@ async function init() {
       if (!state.report) return;
       renderChart(visibleRows());
       renderHeatmap();
+      renderRhythm();
     }, 80);
   }).observe(chart);
 
@@ -673,4 +708,5 @@ async function init() {
   refresh();
 }
 
-init();
+// After the remaining scripts (insights.js, share.js) have loaded.
+document.addEventListener("DOMContentLoaded", init);

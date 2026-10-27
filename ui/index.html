@@ -25,6 +25,7 @@
         <span class="muted">–</span>
         <input type="date" id="to" data-i18n-aria="toDate">
       </div>
+      <button class="btn" id="shareBtn" data-i18n="share" data-i18n-title="shareTitle"></button>
       <button class="btn" id="refresh" data-i18n="refresh" data-i18n-title="refreshTitle"></button>
     </div>
   </header>
@@ -40,6 +41,7 @@
   <main>
     <section class="filters">
       <div class="chips" id="agents" data-i18n-aria="agentFilter"></div>
+      <span class="filter-right">
       <label class="select">
         <span data-i18n="metric"></span>
         <select id="metric">
@@ -49,11 +51,22 @@
           <option value="output" data-i18n="mOutput"></option>
           <option value="cache_read" data-i18n="mCacheRead"></option>
           <option value="cache_write" data-i18n="mCacheWrite"></option>
+          <option value="cost" data-i18n="mCost"></option>
         </select>
       </label>
+      <button class="btn" id="pricesBtn" data-i18n="prices" data-i18n-title="pricesTitle"></button>
+      </span>
     </section>
 
     <section class="tiles" id="tiles"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 data-i18n="records"></h2>
+        <span class="muted" data-i18n="recordsHint"></span>
+      </div>
+      <div class="stats" id="records"></div>
+    </section>
 
     <section class="card">
       <div class="card-head">
@@ -78,6 +91,23 @@
       <div class="legend" id="legend"></div>
       <div class="chart" id="chart"></div>
     </section>
+
+    <div class="split">
+      <section class="card">
+        <div class="card-head">
+          <h2 data-i18n="projects"></h2>
+          <span class="muted" id="projectCount"></span>
+        </div>
+        <div id="projects"></div>
+      </section>
+      <section class="card">
+        <div class="card-head">
+          <h2 data-i18n="rhythm"></h2>
+          <span class="muted" data-i18n="rhythmHint"></span>
+        </div>
+        <div class="heatmap" id="rhythm"></div>
+      </section>
+    </div>
 
     <section>
       <h2 class="section-title" data-i18n="perAgent"></h2>
@@ -109,8 +139,52 @@
     </section>
   </main>
 
+  <dialog id="pricesDlg" class="dlg">
+    <div class="card-head">
+      <h2 data-i18n="pricesTitle"></h2>
+      <button class="btn" id="pricesClose" data-i18n="close"></button>
+    </div>
+    <p class="muted" data-i18n="pricesNote"></p>
+    <label class="select plan"><span data-i18n="planLabel"></span>
+      <input type="number" min="0" step="any" id="planInput" placeholder="0"></label>
+    <div class="table-wrap">
+      <table class="data prices">
+        <thead><tr><th data-i18n="model"></th><th class="num" data-i18n="input"></th><th class="num" data-i18n="output"></th><th class="num" data-i18n="cacheRead"></th><th class="num" data-i18n="cacheWrite"></th></tr></thead>
+        <tbody id="priceRows"></tbody>
+      </table>
+    </div>
+    <div class="dlg-foot"><button class="btn" id="pricesReset" data-i18n="pricesReset"></button></div>
+  </dialog>
+
+  <dialog id="shareDlg" class="dlg share">
+    <div class="card-head">
+      <div class="seg small" id="shareKind" role="group">
+        <button data-v="week" data-i18n="shareKind_week"></button>
+        <button data-v="month" data-i18n="shareKind_month"></button>
+        <button data-v="year" data-i18n="shareKind_year"></button>
+      </div>
+      <span class="actions">
+        <button class="btn" id="sharePrev" data-i18n-aria="sharePrev">‹</button>
+        <button class="btn" id="shareNext" data-i18n-aria="shareNext">›</button>
+        <button class="btn" id="shareClose" data-i18n="close"></button>
+      </span>
+    </div>
+    <canvas id="shareCanvas"></canvas>
+    <div class="dlg-foot">
+      <span class="muted" id="shareMsg"></span>
+      <span class="actions">
+        <button class="btn" id="shareReveal" hidden data-i18n="shareReveal"></button>
+        <button class="btn" id="shareCopy" data-i18n="shareCopy"></button>
+        <button class="btn primary" id="shareSave" data-i18n="shareSave"></button>
+      </span>
+    </div>
+  </dialog>
+
   <div class="tooltip" id="tooltip" hidden></div>
   <script src="i18n.js"></script>
+  <script src="pricing.js"></script>
   <script src="app.js"></script>
+  <script src="insights.js"></script>
+  <script src="share.js"></script>
 </body>
 </html>

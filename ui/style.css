@@ -214,6 +214,45 @@ table.mini tr:last-child td { border-bottom: 0; }
 .tooltip .row i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .tooltip .sum { border-top: 1px solid var(--grid); margin-top: 4px; padding-top: 4px; font-weight: 600; }
 
+.filter-right { display: inline-flex; align-items: center; gap: 8px; }
+.btn.small { height: var(--ctl-sm); font-size: 12px; margin-top: 8px; }
+.small { font-size: 11px; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px 16px; }
+.stat .label { color: var(--ink-2); font-size: 12px; }
+.stat .value { font-size: 20px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.stat .value.small { font-size: 16px; padding-top: 4px; }
+.stat .hint { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.split > .card { min-width: 0; }
+.bar.stacked { display: flex; gap: 0; background: var(--grid); }
+.bar.stacked > b { border-radius: 0; flex: none; }
+.bar.stacked > b:first-child { border-radius: 2px 0 0 2px; }
+
+.dlg {
+  border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px;
+  background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+  width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
+}
+.dlg::backdrop { background: rgba(0, 0, 0, .35); }
+.dlg[open] { display: flex; flex-direction: column; gap: 10px; }
+.dlg p { margin: 0; font-size: 12px; }
+.dlg .table-wrap { max-height: 50vh; }
+.dlg-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.actions { display: inline-flex; gap: 8px; align-items: center; }
+.plan input, table.prices input {
+  height: var(--ctl-sm); width: 90px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface-2); color: var(--ink); padding: 0 6px; font: inherit; text-align: right;
+}
+table.prices td { vertical-align: middle; }
+table.prices td:first-child { max-width: 220px; }
+table.prices tr.unpriced .model-name { color: var(--muted); }
+.dlg.share { width: fit-content; max-width: calc(100vw - 32px); }
+.btn[hidden] { display: none; }
+#shareCanvas { display: block; height: min(64vh, 720px); width: auto; aspect-ratio: 1080 / 1350; border-radius: 10px; align-self: center; }
+#shareMsg { max-width: 360px; word-break: break-all; font-size: 12px; }
+
 @media (max-width: 640px) {
   .topbar, main { padding-left: 16px; padding-right: 16px; }
   .update-bar { width: calc(100% - 32px); }

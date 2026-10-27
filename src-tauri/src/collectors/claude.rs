@@ -53,6 +53,8 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
         .components()
         .any(|c| c.as_os_str() == "local-agent-mode-sessions");
     let mut out = Vec::new();
+    // The session's starting directory; later lines may `cd` into subdirs.
+    let mut cwd: Option<String> = None;
     for_each_line(open(path)?, |line| {
         // Cheap prefilter: only assistant lines carry usage.
         if !line.contains("\"usage\"") || !line.contains("\"assistant\"") {
@@ -64,6 +66,9 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
         }
         if v.get("isApiErrorMessage").and_then(Value::as_bool) == Some(true) {
             return;
+        }
+        if cwd.is_none() {
+            cwd = v.get("cwd").and_then(Value::as_str).map(str::to_string);
         }
         let Some(msg) = v.get("message") else { return };
         let Some(usage) = msg.get("usage") else { return };
@@ -100,6 +105,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
             ts_ms: ts,
             agent: agent_for(v.get("entrypoint").and_then(Value::as_str), cowork),
             model: model.to_string(),
+            cwd: cwd.clone(),
             tokens,
         });
     });

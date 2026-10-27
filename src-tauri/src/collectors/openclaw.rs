@@ -40,7 +40,7 @@ pub fn collect(cache: &FileCache) -> (Vec<Event>, SourceStatus) {
     (events, status(AGENT, &roots, n, errors))
 }
 
-fn event_from(v: &Value) -> Option<Event> {
+fn event_from(v: &Value, cwd: Option<&str>) -> Option<Event> {
     if v.get("type").and_then(Value::as_str) != Some("message") {
         return None;
     }
@@ -77,18 +77,26 @@ fn event_from(v: &Value) -> Option<Event> {
         ts_ms: ts,
         agent: AGENT,
         model,
+        cwd: cwd.map(str::to_string),
         tokens,
     })
 }
 
 fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
     let mut out = Vec::new();
+    // The session header line records the working directory.
+    let mut cwd: Option<String> = None;
     for_each_line(open(path)?, |line| {
+        if cwd.is_none() && line.contains("\"cwd\"") {
+            if let Ok(v) = serde_json::from_str::<Value>(line) {
+                cwd = v.get("cwd").and_then(Value::as_str).map(str::to_string);
+            }
+        }
         if !line.contains("\"usage\"") {
             return;
         }
         if let Ok(v) = serde_json::from_str::<Value>(line) {
-            out.extend(event_from(&v));
+            out.extend(event_from(&v, cwd.as_deref()));
         }
     });
     Ok(out)
@@ -126,7 +134,7 @@ fn read_db(path: &Path) -> Result<Vec<Event>, String> {
             continue;
         }
         if let Ok(v) = serde_json::from_str::<Value>(&json) {
-            out.extend(event_from(&v));
+            out.extend(event_from(&v, None));
         }
     }
     Ok(out)

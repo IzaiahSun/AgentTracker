@@ -71,6 +71,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
     let mut header: Option<Value> = None;
     let mut session_id = String::new();
     let mut seed_len: i64 = 0;
+    let mut cwd: Option<String> = None;
     let mut latest_model: Option<String> = None;
     let mut steps: BTreeMap<(i64, i64), Step> = BTreeMap::new();
     let mut out = Vec::new();
@@ -80,6 +81,10 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
         if header.is_none() {
             session_id = v.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
             seed_len = v.get("seedLength").and_then(Value::as_i64).unwrap_or(0);
+            cwd = ["cwd", "workspace", "workingDirectory"]
+                .iter()
+                .find_map(|k| v.get(*k).and_then(Value::as_str))
+                .map(str::to_string);
             header = Some(v);
             return;
         }
@@ -153,6 +158,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
                         .and_then(Value::as_str)
                         .unwrap_or("unknown")
                         .to_string(),
+                    cwd: cwd.clone(),
                     tokens,
                 });
             }
@@ -187,6 +193,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
                 .final_model
                 .or(s.request_model)
                 .unwrap_or_else(|| "unknown".into()),
+            cwd: cwd.clone(),
             tokens,
         });
     }

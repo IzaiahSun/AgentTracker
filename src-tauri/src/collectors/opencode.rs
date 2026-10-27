@@ -43,7 +43,7 @@ pub fn collect(cache: &FileCache) -> (Vec<Event>, SourceStatus) {
 }
 
 /// Builds an event from an assistant message object (legacy or v2 shape).
-fn event_from(id: &str, v: &Value, fallback_ts: Option<i64>) -> Option<Event> {
+fn event_from(id: &str, v: &Value, fallback_ts: Option<i64>, session_dir: Option<&str>) -> Option<Event> {
     if let Some(role) = v.get("role").and_then(Value::as_str) {
         if role != "assistant" {
             return None;
@@ -74,11 +74,21 @@ fn event_from(id: &str, v: &Value, fallback_ts: Option<i64>) -> Option<Event> {
         .and_then(|t| t.get("created"))
         .and_then(json_ts)
         .or(fallback_ts)?;
+    // `path.root` is the git worktree ("/" outside a repo); `path.cwd` the directory.
+    let path = v.get("path");
+    let cwd = path
+        .and_then(|p| p.get("root"))
+        .and_then(Value::as_str)
+        .filter(|r| *r != "/" && !r.is_empty())
+        .or_else(|| path.and_then(|p| p.get("cwd")).and_then(Value::as_str))
+        .or(session_dir)
+        .map(str::to_string);
     Some(Event {
         key: Some(format!("opencode:{id}")),
         ts_ms: ts,
         agent: AGENT,
         model,
+        cwd,
         tokens,
     })
 }
@@ -86,35 +96,54 @@ fn event_from(id: &str, v: &Value, fallback_ts: Option<i64>) -> Option<Event> {
 fn parse_json_file(path: &Path) -> Result<Vec<Event>, String> {
     let v: Value = serde_json::from_reader(open(path)?).map_err(|e| e.to_string())?;
     let id = v.get("id").and_then(Value::as_str).unwrap_or_default().to_string();
-    Ok(event_from(&id, &v, None).into_iter().collect())
+    Ok(event_from(&id, &v, None, None).into_iter().collect())
 }
 
 fn read_db(path: &Path) -> Result<Vec<Event>, String> {
     let conn = open_sqlite(path)?;
     let mut out = Vec::new();
+    // Session directory as a fallback when the message has no `path`.
+    let dir = |sessions: &str| {
+        if has_table(&conn, sessions) {
+            format!("(SELECT directory FROM {sessions} s WHERE s.id = m.session_id)")
+        } else {
+            "NULL".to_string()
+        }
+    };
     let queries = [
-        ("message", "SELECT id, data, time_created FROM message"),
+        (
+            "message",
+            format!("SELECT m.id, m.data, m.time_created, {} FROM message m", dir("session")),
+        ),
         (
             "session_message",
-            "SELECT id, data, time_created FROM session_message WHERE type = 'assistant'",
+            format!(
+                "SELECT m.id, m.data, m.time_created, {} FROM session_message m WHERE m.type = 'assistant'",
+                dir("session_v2")
+            ),
         ),
     ];
     for (table, sql) in queries {
         if !has_table(&conn, table) {
             continue;
         }
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2).ok()))
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2).ok(),
+                    r.get::<_, Option<String>>(3).ok().flatten(),
+                ))
             })
             .map_err(|e| e.to_string())?;
-        for (id, data, created) in rows.flatten() {
+        for (id, data, created, session_dir) in rows.flatten() {
             if !data.contains("\"tokens\"") {
                 continue;
             }
             if let Ok(v) = serde_json::from_str::<Value>(&data) {
-                out.extend(event_from(&id, &v, created));
+                out.extend(event_from(&id, &v, created, session_dir.as_deref()));
             }
         }
     }

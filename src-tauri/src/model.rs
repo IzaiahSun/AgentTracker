@@ -36,18 +36,32 @@ pub struct Event {
     pub ts_ms: i64,
     pub agent: &'static str,
     pub model: String,
+    /// Working directory of the session, resolved to a project later.
+    pub cwd: Option<String>,
     pub tokens: Tokens,
 }
 
-/// Aggregated row sent to the UI: one (local day, agent, model) bucket.
+/// Aggregated row sent to the UI: one (local day, agent, model, project) bucket.
 #[derive(Clone, Debug, Serialize)]
 pub struct DailyRow {
     pub date: String,
     pub agent: &'static str,
     pub model: String,
+    /// Project root path; "" when unknown, or a `project::TEMP`/`COWORK` bucket.
+    pub project: String,
     pub requests: u64,
     #[serde(flatten)]
     pub tokens: Tokens,
+}
+
+/// Requests and tokens per (local day, hour of day, agent), for the weekly rhythm view.
+#[derive(Clone, Debug, Serialize)]
+pub struct HourRow {
+    pub date: String,
+    pub hour: u32,
+    pub agent: &'static str,
+    pub requests: u64,
+    pub tokens: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -62,17 +76,20 @@ pub struct SourceStatus {
 #[derive(Clone, Debug, Serialize)]
 pub struct Report {
     pub rows: Vec<DailyRow>,
+    pub hours: Vec<HourRow>,
     pub sources: Vec<SourceStatus>,
     pub generated_at: String,
     pub scan_ms: u128,
 }
 
-pub fn local_date(ts_ms: i64) -> String {
+/// Local calendar day and hour of `ts_ms`.
+pub fn local_date_hour(ts_ms: i64) -> (String, u32) {
+    use chrono::Timelike;
     match Local.timestamp_millis_opt(ts_ms) {
         chrono::LocalResult::Single(t) | chrono::LocalResult::Ambiguous(t, _) => {
-            t.format("%Y-%m-%d").to_string()
+            (t.format("%Y-%m-%d").to_string(), t.hour())
         }
-        chrono::LocalResult::None => "unknown".into(),
+        chrono::LocalResult::None => ("unknown".into(), 0),
     }
 }
 

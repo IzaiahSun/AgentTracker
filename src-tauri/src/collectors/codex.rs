@@ -44,6 +44,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
     let mut agent = CLI;
     let mut model = String::from("unknown");
     let mut last_total: Option<u64> = None;
+    let mut cwd: Option<String> = None;
     for_each_line(open(path)?, |line| {
         let is_meta = line.contains("\"session_meta\"");
         let is_ctx = line.contains("\"turn_context\"");
@@ -61,8 +62,14 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
                 if let Some(m) = payload.get("model").and_then(Value::as_str) {
                     model = m.to_string();
                 }
+                if let Some(c) = payload.get("cwd").and_then(Value::as_str) {
+                    cwd = Some(c.to_string());
+                }
             }
             Some("turn_context") => {
+                if cwd.is_none() {
+                    cwd = payload.get("cwd").and_then(Value::as_str).map(str::to_string);
+                }
                 if let Some(m) = payload.get("model").and_then(Value::as_str) {
                     model = m.to_string();
                 }
@@ -96,7 +103,7 @@ fn parse_file(path: &Path) -> Result<Vec<Event>, String> {
                     v.get("timestamp").and_then(Value::as_str).unwrap_or(""),
                     total.unwrap_or(0)
                 ));
-                out.push(Event { key, ts_ms: ts, agent, model: model.clone(), tokens });
+                out.push(Event { key, ts_ms: ts, agent, model: model.clone(), cwd: cwd.clone(), tokens });
             }
             _ => {}
         }
